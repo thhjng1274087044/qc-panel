@@ -1,0 +1,50 @@
+[
+  {
+    "record_id": "recDEMOa1b2c3d4",
+    "tn": "DEMO26000001-GC001",
+    "name": "示例项目一（虚构）",
+    "sub": "",
+    "badge": "一致",
+    "tone": "green",
+    "mode": "area",
+    "img": null,
+    "reason": "通过：清单「示例面积」964.18 平方米 与图面注记 964.18 平方米 一致。",
+    "ai": "通过",
+    "stage": "部门审核",
+    "file_token": null,
+    "upload": null,
+    "index": "01"
+  },
+  {
+    "record_id": "recDEMOb2c3d4e5",
+    "tn": "DEMO26000002-GC002",
+    "name": "示例项目二（虚构）",
+    "sub": "",
+    "badge": "不一致（登记不改判）",
+    "tone": "red",
+    "mode": "point",
+    "img": null,
+    "reason": "已登记差异：清单「示例点数」18 点 与报告自述 17 点 不一致，差异原因待业务方确认，本条不作改判。",
+    "ai": "通过",
+    "stage": "部门审核",
+    "file_token": null,
+    "upload": null,
+    "index": "02"
+  },
+  {
+    "record_id": "recDEMOc3d4e5f6",
+    "tn": "DEMO26000003-GC003",
+    "name": "示例项目三（虚构）",
+    "sub": "",
+    "badge": "并列核对",
+    "tone": "gray",
+    "mode": "report",
+    "img": null,
+    "reason": "并列核对：清单未列数量，报告自述与校验表并列展示，未作判定。",
+    "ai": "待判",
+    "stage": "部门审核",
+    "file_token": null,
+    "upload": null,
+    "index": "03"
+  }
+]

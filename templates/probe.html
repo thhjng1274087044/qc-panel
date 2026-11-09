@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>质检插件 · 上下文探针</title>
+<style>
+:root{
+  --ink:#1f2937;--ink2:#5a6270;--ink3:#8a919e;
+  --line:#e5e7eb;--line2:#d3d8e0;--bg:#fff;--bg2:#f6f8fa;
+  --blue:#1c5294;--blueL:#eaf0f9;
+  --green:#22824a;--greenL:#eaf5ef;
+  --amber:#a9741a;--amberL:#fdf3e2;
+  --red:#c81e1e;--redL:#fdecec;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:#eef1f5;color:var(--ink);padding:14px;
+  font:400 13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:15px;font-weight:500;margin:0 0 3px}
+.sub{font-size:12px;color:var(--ink3);margin-bottom:12px}
+
+/* 结论 */
+.verdict{border-radius:8px;padding:12px 14px;margin-bottom:12px;border:1px solid;border-left-width:4px}
+.verdict .vt{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px}
+.verdict .vd{font-size:12px;margin-top:5px;line-height:1.6;opacity:.88}
+.verdict .vcode{font-family:var(--mono);font-size:11.5px;background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px}
+.v-green{background:var(--greenL);border-color:#b7ddc7;border-left-color:var(--green);color:#175c33}
+.v-amber{background:var(--amberL);border-color:#e8d3ab;border-left-color:var(--amber);color:#7a5310}
+.v-red{background:var(--redL);border-color:#e8bcbc;border-left-color:var(--red);color:#8f1d1d}
+.v-gray{background:var(--bg2);border-color:var(--line2);border-left-color:#7b8496;color:var(--ink2)}
+.ic{width:15px;height:15px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:600;flex:0 0 auto}
+.v-green .ic{background:var(--green)}
+.v-amber .ic{background:var(--amber)}
+.v-red .ic{background:var(--red)}
+.v-gray .ic{background:#7b8496}
+
+/* 卡片 */
+.card{background:var(--bg);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.card-h{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fafbfc;
+  border-bottom:1px solid var(--line);font-size:12px;color:var(--ink2);
+}
+.card-h b{font-weight:500;color:var(--ink);font-size:12.5px}
+.card-h .sp{flex:1}
+.card-b{padding:10px 12px}
+.mini{border:0;background:transparent;color:var(--blue);font:inherit;font-size:11.5px;cursor:pointer;padding:2px 6px;border-radius:3px}
+.mini:hover{background:var(--blueL)}
+
+/* 键值 */
+.kv{display:flex;gap:10px;padding:3px 0;font-size:12px;align-items:baseline}
+.kv>i{font-style:normal;flex:0 0 108px;color:var(--ink3);font-size:11.5px}
+.kv>span{font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--ink)}
+.kv>span.dim{color:var(--ink3)}
+.yes{color:var(--green);font-weight:500}
+.no{color:var(--red);font-weight:500}
+
+/* JSON */
+pre{
+  margin:0;padding:9px 11px;background:#f7f9fb;border:1px solid #eef0f3;border-radius:6px;
+  font-family:var(--mono);font-size:11.5px;line-height:1.65;overflow:auto;max-height:220px;color:#2f3742;
+}
+.hl{color:var(--blue);font-weight:500}
+.hl-red{color:var(--red);font-weight:500}
+
+/* 日志 */
+.log{max-height:260px;overflow:auto}
+.le{display:flex;gap:8px;padding:5px 0;border-top:1px solid #f2f4f7;font-size:11.5px;align-items:baseline}
+.le:first-child{border-top:0}
+.le .t{font-family:var(--mono);color:var(--ink3);flex:0 0 52px}
+.le .k{flex:0 0 88px;font-size:11px}
+.le .v{font-family:var(--mono);color:var(--ink);word-break:break-all;flex:1;letter-spacing:-.3px}
+.k-ev{color:var(--green);font-weight:500}
+.k-poll{color:var(--amber);font-weight:500}
+.k-info{color:var(--ink3)}
+.empty{padding:14px 4px;text-align:center;color:var(--ink3);font-size:12px}
+
+/* 提示 */
+.note{padding:9px 12px;background:var(--blueL);border-radius:6px;font-size:11.5px;line-height:1.7;color:#1e4a83;margin-bottom:10px}
+.note b{font-weight:500}
+.foot{display:flex;gap:8px;align-items:center;padding:10px 0 20px}
+.btn{
+  border:1px solid var(--line2);background:#fff;color:var(--ink);border-radius:5px;
+  padding:6px 12px;font:inherit;font-size:12px;cursor:pointer;
+}
+.btn:hover{border-color:var(--ink3)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:#2a68b5}
+.foot .sp{flex:1}
+.foot .hint{font-size:11px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>质检插件 · 上下文探针</h1>
+  <div class="sub">用来确认一件事：这个插件拿不拿得到左侧当前选中的记录</div>
+
+  <div class="verdict v-gray" id="verdict">
+    <div class="vt"><span class="ic" id="vi">…</span><span id="vt">正在检测</span></div>
+    <div class="vd" id="vd">正在尝试加载多维表格 SDK</div>
+  </div>
+
+  <div class="note" id="tip" hidden></div>
+
+  <div class="card">
+    <div class="card-h"><b>运行环境</b><span class="sp"></span>
+      <button class="mini" id="reload">重新检测</button></div>
+    <div class="card-b" id="env"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><b>地址栏参数</b><span class="sp"></span>
+      <span style="font-size:11px;color:var(--ink3)" id="paramCount"></span></div>
+    <div class="card-b" id="params"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><b>getSelection()</b><span class="sp"></span>
+      <button class="mini" id="refresh">取一次</button></div>
+    <div class="card-b"><pre id="sel">等待 SDK…</pre></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><b>选中变化日志</b><span class="sp"></span>
+      <span style="font-size:11px;color:var(--ink3)" id="stat">0 次事件 / 0 次补获</span>
+      <button class="mini" id="clear">清空</button></div>
+    <div class="card-b log" id="log">
+      <div class="empty">回到飞书左表点一行，这里会出现记录</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <button class="btn primary" id="copy">复制诊断报告</button>
+    <button class="btn" id="exportAll">导出</button>
+    <span class="sp"></span>
+    <span class="hint" id="hint">在飞书里用：回左表点另一行 → 回来看看这里有没有新增</span>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   探针：判断这个页面能不能拿到「左侧当前选中的记录」
+   两条证据链 —— 地址栏参数（零依赖）+ SDK 的 getSelection（权威）
+   ========================================================================== */
+const $ = s => document.querySelector(s);
+const params = new URLSearchParams(location.search);
+const events = [];
+let sdk = null, sdkErr = '', selState = null, selTimeout = false;
+let curRid = null, evCount = 0, pollCount = 0, sdkMode = '—';
+
+/* ---- 日志 ---------------------------------------------------------------- */
+function stamp(){
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' +
+         String(d.getMinutes()).padStart(2,'0') + ':' +
+         String(d.getSeconds()).padStart(2,'0');
+}
+function push(kind, text, cls){
+  events.unshift({kind, text, cls, at: stamp()});
+  if(events.length > 80) events.pop();
+  renderLog();
+}
+function renderLog(){
+  const box = $('#log');
+  if(!events.length){
+    box.innerHTML = '<div class="empty">回到飞书左表点一行，这里会出现记录</div>';
+    return;
+  }
+  box.innerHTML = events.map(e =>
+    `<div class="le"><span class="t">${e.at}</span>
+     <span class="k ${e.cls}">${e.kind}</span>
+     <span class="v">${e.text}</span></div>`).join('');
+  $('#stat').textContent = `${evCount} 次事件 / ${pollCount} 次补获`;
+}
+
+/* ---- 环境 ---------------------------------------------------------------- */
+function renderEnv(){
+  let inIframe = false;
+  try { inIframe = window.self !== window.top; } catch(e){ inIframe = true; }
+  let referrer = document.referrer || '(空)';
+  const isDesktop = /Lark|Feishu|bytedance|lark/i.test(navigator.userAgent);
+  const rows = [
+    ['页面地址', decodeURI(location.href)],
+    ['是否在 iframe 内', inIframe ? '是（符合插件形态）' : '否（直接打开的）'],
+    ['宿主 referrer', referrer],
+    ['window.name', window.name || '(空)'],
+    ['客户端', isDesktop ? '飞书客户端' : '普通浏览器'],
+    ['SDK', sdkMode]
+  ];
+  $('#env').innerHTML = rows.map(([k,v]) =>
+    `<div class="kv"><i>${k}</i><span class="${v==='(空)'?'dim':''}">${esc(v)}</span></div>`
+  ).join('');
+}
+function esc(s){ return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+
+/* ---- 参数 ---------------------------------------------------------------- */
+const CANDIDATE_KEYS = ['recordId','record_id','recordid','tableId','table_id','baseToken','base_token','appToken','viewId','view_id','fieldId','field_id','blockTypeID'];
+function renderParams(){
+  const all = [...params.entries()];
+  $('#paramCount').textContent = all.length ? all.length + ' 个参数' : '无参数';
+  if(!all.length){
+    $('#params').innerHTML = '<div class="empty">地址栏没有任何参数 —— 宿主没告诉这个页面它在哪张表、哪一行</div>';
+    return;
+  }
+  $('#params').innerHTML = all.map(([k,v]) => {
+    const hit = CANDIDATE_KEYS.some(c => c.toLowerCase() === k.toLowerCase());
+    return `<div class="kv"><i>${esc(k)}</i><span>${esc(v)}</span>
+      ${hit ? '<span class="yes" style="font-size:11px">关键</span>' : ''}</div>`;
+  }).join('');
+}
+
+/* ---- SDK 加载：多路尝试，每路都有硬超时 ---------------------------------- */
+function withTimeout(p, ms, label){
+  let tid;
+  return Promise.race([
+    p,
+    new Promise((_, rej) => { tid = setTimeout(() => rej(new Error(label + ' 超时')), ms); })
+  ]).finally(() => clearTimeout(tid));
+}
+
+async function loadSdk(){
+  const marks = [];
+  if(window.bitable && window.bitable.base){
+    sdk = window.bitable; sdkMode = 'window.bitable（宿主已注入）';
+    marks.push('window.bitable ✓');
+    return marks;
+  }
+  const cands = [
+    ['esm.sh',    'https://esm.sh/@lark-base-open/js-sdk'],
+    ['jsdelivr',  'https://cdn.jsdelivr.net/npm/@lark-base-open/js-sdk/+esm'],
+    ['unpkg',     'https://unpkg.com/@lark-base-open/js-sdk?module']
+  ];
+  for(const [name, url] of cands){
+    const TO = name === 'esm.sh' ? 9000 : 3000;   /* 主力源要下 SDK 本体，给足时间 */
+    try{
+      push('环境', '尝试 ' + name + '…', 'k-info');
+      const m = await withTimeout(import(/* @vite-ignore */ url), TO, name);
+      const b = m && (m.bitable || (m.default && m.default.bitable));
+      if(b && b.base){
+        sdk = b; sdkMode = name + ' ✓';
+        marks.push(name + ' ✓');
+        return marks;
+      }
+      marks.push(name + ' 无 bitable');
+    }catch(e){
+      marks.push(name + ' ✗');
+      sdkErr = (e && e.message) || String(e);
+    }
+  }
+  sdkMode = '未加载（' + marks.join(' / ') + '）';
+  return marks;
+}
+
+async function getSel(){
+  if(!sdk) return null;
+  try{
+    return await sdk.base.getSelection();
+  }catch(e){
+    sdkErr = (e && e.message) || String(e);
+    return null;
+  }
+}
+
+/* ---- 判定 ---------------------------------------------------------------- */
+const urlRid = params.get('recordId') || params.get('record_id') || params.get('recordid');
+let pmRid = null;   /* 宿主通过 postMessage 推过来的记录号 */
+
+function judge(){
+  const v = $('#verdict');
+  const set = (c, ic, t, d) => {
+    v.className = 'verdict ' + c;
+    $('#vi').textContent = ic;
+    $('#vt').textContent = t;
+    $('#vd').innerHTML = d;
+  };
+
+  const live = !!(sdk && selState && selState.recordId);          /* 实时通道 */
+  const anyRid = live || urlRid || pmRid;                          /* 任何来源的记录号 */
+  const from = live ? 'SDK 实时' : urlRid ? '地址栏' : pmRid ? '宿主消息' : '—';
+
+  if(live){
+    set('v-green', '✓', '通了 · 能跟着左边变',
+      '拿到 <span class="vcode">recordId = ' + esc(selState.recordId) + '</span>，' +
+      '左侧选中哪一行，事件就会推过来。这个形态可以直接上。');
+    $('#tip').hidden = true;
+    return;
+  }
+  if(anyRid){
+    const tail = selTimeout
+      ? '<br>但 SDK 的 getSelection() 三秒没返回 —— 实时通道是断的。'
+      : (sdk ? '<br>SDK 在，此刻却读不到选中值 —— 也可能只是左边没点中任何一行。'
+             : '<br>没有 SDK，这条记录号是打开这一瞬间的快照。');
+    set('v-amber', '!', '拿到了记录号，但没有实时通道',
+      '来源 <b>' + from + '</b> · <span class="vcode">' + esc(anyRid) + '</span>' +
+      '<br>能用它把当前这一条显示对；左边换行时，右侧不会自动跟着动。' + tail);
+    $('#tip').hidden = false;
+    $('#tip').innerHTML = '<b>怎么验跟随：</b>左边换到另一行，再看这里 —— ' +
+      '记录号变了就是通了，一动不动就只拿到快照。';
+    return;
+  }
+  if(sdk && selTimeout){
+    set('v-amber', '!', 'SDK 在，但宿主没应答',
+      'getSelection() 三秒没返回 —— SDK 拿不到多维表格内核，请求挂住了。' +
+      '<br>常见原因：页面不是以扩展方式挂载；或者 SDK 是从 CDN 加载的，跟宿主不是同一个实例。' +
+      '<br>这种情况<b>不能</b>靠这一页拿到选中记录，要改成打包进页面的方式挂载。');
+    $('#tip').hidden = false;
+    $('#tip').innerHTML = '<b>判别：</b>打包版还超时，才是真的形态不对；' +
+      'CDN 版超时属于预期 —— 只能说明「加载得到、连不上」。';
+    return;
+  }
+  if(sdk){
+    set('v-amber', '!', 'SDK 加载了，但读不到选中信息',
+      '可能是权限不足，或者当前视图类型不支持。<br>' +
+      (sdkErr ? '报错：<span class="vcode">' + esc(sdkErr) + '</span>' : ''));
+    return;
+  }
+  set('v-red', '×', '没拿到 SDK，也没有记录号',
+    '四条路都空了。可能是下面三种情况之一，看「运行环境」判断：' +
+    '<br>① 只是普通网页，没以扩展方式挂载 → referrer 为空、不在 iframe 内' +
+    '<br>② 是扩展，但 SDK 没打包进页面 → 在 iframe 内，但 window.bitable 为空' +
+    '<br>③ 宿主用 postMessage 传参但格式不认识 → 看日志里有没有「宿主消息」');
+  $('#tip').hidden = false;
+  $('#tip').innerHTML = '<b>怎么修：</b>② 改用 opdev 工程把 SDK 打包进去；' +
+    '③ 把日志里的宿主消息发我，按它的格式对接；' +
+    '都走不通就退到记录视图形态 —— 一条记录一个页面，天然绑定，不用猜。';
+}
+
+/* ---- 渲染 selection ------------------------------------------------------ */
+function renderSel(s){
+  if(!sdk){
+    $('#sel').innerHTML = '<span class="hl-red">SDK 未加载</span>\n' +
+      'sdkMode = ' + esc(sdkMode) + '\n' +
+      (sdkErr ? 'err = ' + esc(sdkErr) : '');
+    return;
+  }
+  if(!s){
+    $('#sel').innerHTML = '<span class="hl-red">getSelection() 调用失败</span>\n' + esc(sdkErr || '未知');
+    return;
+  }
+  const html = Object.entries(s).map(([k,v]) =>
+    `  "${k}": ` + (v === null
+      ? '<span class="hl-red">null</span>'
+      : '<span class="hl">"' + esc(v) + '"</span>')
+  ).join(',\n');
+  $('#sel').innerHTML = '{\n' + html + '\n}';
+}
+
+async function refreshSel(quiet){
+  let s = null;
+  if(sdk){
+    try{
+      s = await withTimeout(getSel(), 3000, 'getSelection');
+      selTimeout = false;
+    }catch(e){
+      sdkErr = (e && e.message) || String(e);
+      selTimeout = true;      /* 挂起不返回 = 宿主没应答，这个必须单独报出来 */
+    }
+  }
+  selState = s;
+  renderSel(s);
+  if(s && s.recordId) curRid = s.recordId;
+  judge();
+  if(!quiet){
+    push('取一次',
+      s ? ('recordId = ' + (s.recordId || 'null'))
+        : (selTimeout ? '超时 · 宿主无响应' : 'null'), 'k-info');
+  }
+  return s;
+}
+
+/* 宿主可能通过 postMessage 传参（很多 iframe 集成这么做），最早挂上 */
+window.addEventListener('message', e => {
+  let brief = '';
+  try { brief = typeof e.data === 'string' ? e.data : JSON.stringify(e.data); }
+  catch(_){ brief = '[不可序列化]'; }
+  const og = (!e.origin || e.origin === 'null') ? '本地页面' : e.origin;
+  push('宿主消息', og + ' · ' + (brief || '').slice(0, 160), 'k-ev');
+  const m = /"?(recordId|record_id|recordid)"?\s*[:=]\s*"?([A-Za-z0-9_-]{6,})/.exec(brief || '');
+  if(m){ pmRid = m[2]; push('宿主消息', '里面带记录号 = ' + m[2], 'k-ev'); judge(); }
+});
+
+/* ---- 启动 ---------------------------------------------------------------- */
+(async function boot(){
+  renderEnv();
+  renderParams();
+
+  /* 先给中间态，别让人盯着「正在检测」干等 */
+  const v = $('#verdict');
+  v.className = 'verdict v-gray';
+  $('#vi').textContent = '…';
+  $('#vt').textContent = urlRid ? '已读到地址栏 recordId' : '正在探测 SDK';
+  $('#vd').innerHTML = urlRid
+    ? '地址栏带 <span class="vcode">' + esc(urlRid) + '</span>，正在试 3 个来源确认能不能实时跟随…'
+    : '正在试 3 个来源加载多维表格 SDK，每个最多 3 秒…';
+
+  const marks = await loadSdk();
+  renderEnv();
+  push('环境', 'SDK 尝试：' + marks.join(' / '), 'k-info');
+  if(sdk){
+    push('环境', 'SDK 已就绪：' + sdkMode, 'k-info');
+    await refreshSel(true);
+    try{
+      sdk.base.onSelectionChange(ev => {
+        evCount++;
+        const d = (ev && ev.data) || {};
+        if(d.recordId !== curRid) curRid = d.recordId;
+        push('事件', 'recordId = ' + (d.recordId || 'null') +
+             (d.fieldId ? ' · fieldId = ' + d.fieldId : ''), 'k-ev');
+        selState = d;
+        renderSel(d);
+        judge();
+      });
+    }catch(e){
+      push('环境', '订阅失败：' + ((e && e.message) || e), 'k-poll');
+    }
+    /* 兜底：事件丢了轮询能看出来，这直接验证「失焦会漏事件」 */
+    setInterval(async ()=>{
+      let s;
+      try { s = await withTimeout(getSel(), 3000, 'poll'); } catch(e){ return; }
+      const rid = s && s.recordId;
+      if(rid && rid !== curRid){
+        pollCount++;
+        curRid = rid;
+        selState = s;
+        renderSel(s);
+        judge();
+        push('轮询补获', 'recordId = ' + rid + '（事件没到）', 'k-poll');
+      }
+    }, 2000);
+  }else{
+    renderSel(null);
+    judge();
+  }
+})();
+
+/* ---- 交互 ---------------------------------------------------------------- */
+$('#refresh').addEventListener('click', ()=> refreshSel(false));
+$('#clear').addEventListener('click', ()=>{ events.length = 0; evCount = 0; pollCount = 0; renderLog(); });
+$('#reload').addEventListener('click', ()=> location.reload());
+$('#copy').addEventListener('click', async ()=>{
+  const report = {
+    页面: location.href,
+    参数: Object.fromEntries(params),
+    SDK: sdkMode,
+    SDK报错: sdkErr || null,
+    selection: selState,
+    事件次数: evCount,
+    补获次数: pollCount,
+    日志: events.slice(0, 30),
+    UA: navigator.userAgent
+  };
+  const txt = JSON.stringify(report, null, 2);
+  try{
+    await navigator.clipboard.writeText(txt);
+    const b = $('#copy'); const old = b.textContent;
+    b.textContent = '已复制'; setTimeout(()=> b.textContent = old, 1200);
+  }catch(e){
+    $('#exportAll').click();
+  }
+});
+$('#exportAll').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify({
+    页面: location.href, 参数: Object.fromEntries(params), SDK: sdkMode,
+    selection: selState, 日志: events
+  }, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'qc-probe.json';
+  a.click();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>测绘质检</title>
+<style>
+:root{
+  --blue:#1c5294; --blueL:#e8f0fb; --ink:#1f2329; --ink2:#5a6472; --ink3:#8f98a4;
+  --line:#e8eaed; --line2:#d8dce1; --bg2:#f7f8fa; --bg3:#fafbfc;
+  --green:#2e7d46; --greenL:#eaf7ee; --red:#c0392b; --redL:#fdeeed;
+  --amber:#b8860b; --amberL:#fdf6e3; --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:#fff;
+  display:flex;flex-direction:column;overflow:hidden}
+
+/* ---------- 顶栏 ---------- */
+.hd{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:7px;padding:0 11px;border-bottom:1px solid var(--line);background:#fff}
+.hd .ic{width:16px;height:16px;border-radius:4px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex:0 0 auto}
+.hd .ttl{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd .sp{flex:1}
+.hd .st{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink2);white-space:nowrap}
+.hd .who{flex:0 1 auto;max-width:86px;min-width:0;display:none;align-items:center;font-family:var(--mono);
+  font-size:9.5px;color:var(--ink2);background:var(--bg2);border:1px solid var(--line2);border-radius:8px;
+  padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 未命中名单：虚线 + 问号前缀，一眼区分「这是 id」而不是「这个人姓 ou_」 */
+.hd .who.unk{border-style:dashed;background:transparent;color:var(--ink3, var(--ink2))}
+.hd .st i{width:6px;height:6px;border-radius:50%;background:var(--ink3);display:block}
+.hd .st.ok i{background:var(--green)} .hd .st.ok{color:var(--green)}
+.hd .st.wn i{background:var(--amber)} .hd .st.wn{color:var(--amber)}
+
+/* ---------- 绑定条 ---------- */
+.bind{flex:0 0 auto;display:flex;align-items:center;gap:6px;height:28px;padding:0 11px;
+  border-bottom:1px solid var(--line);background:var(--greenL);font-size:10.5px;color:var(--ink2);position:relative}
+.bind .bic{width:12px;height:12px;border-radius:50%;background:var(--green);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex:0 0 auto}
+.bind .rid{font-family:var(--mono);font-size:10px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bind .rid b{color:var(--ink2);font-weight:600}
+.bind .aud{margin-left:auto;font-size:10px;color:var(--blue);cursor:pointer;text-decoration:underline;white-space:nowrap}
+.bind.sync{background:var(--amberL)} .bind.sync .bic{background:var(--amber)} .bind.sync .rid b{color:var(--amber)}
+.bind.drift{background:var(--redL);border-bottom-color:#f2d4d4}
+.bind.drift .bic{background:var(--red)} .bind.drift .rid b{color:var(--red)} .bind.drift .aud{color:var(--red)}
+.bind.none{background:var(--bg2)} .bind.none .bic{background:var(--ink3)}
+
+/* ---------- 主体 ---------- */
+.body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 0 8px}
+.wrap{padding:10px 11px 0}
+.grid2{display:grid;grid-template-columns:1fr;gap:0}
+@media(min-width:520px){ .grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:start} }
+
+/* 任务头 */
+.tk{display:flex;align-items:baseline;gap:7px;margin-bottom:6px}
+.tk .tn{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:-.2px}
+.tk .pos{font-size:10px;color:var(--ink3);white-space:nowrap}
+
+/* 结论卡 */
+.pv{border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-bottom:8px;background:#fff}
+.pv.green{border-color:#cfe8d8;background:linear-gradient(180deg,#f4fbf6,#fff)}
+.pv.red{border-color:#f0cfcf;background:linear-gradient(180deg,#fef6f6,#fff)}
+.pv.gray{border-color:#e2e5e9;background:linear-gradient(180deg,#f8f9fa,#fff)}
+.pv .r1{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.badge i{width:4px;height:4px;border-radius:50%;display:block}
+.badge.g{background:var(--greenL);color:var(--green)} .badge.g i{background:var(--green)}
+.badge.r{background:var(--redL);color:var(--red)} .badge.r i{background:var(--red)}
+.badge.n{background:#eef0f3;color:var(--ink2)} .badge.n i{background:var(--ink3)}
+.pv .ai{font-size:10.5px;color:var(--ink2)}
+.pv .ai b{color:var(--ink);font-weight:600}
+.pv .txt{font-size:11.5px;line-height:1.62;color:var(--ink);word-break:break-word}
+.pv .txt.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.more{font-size:10px;color:var(--blue);cursor:pointer;margin-top:2px;display:inline-block}
+
+/* 数值对撞（有则显示） */
+.duel{display:flex;align-items:center;gap:8px;margin:6px 0 2px;padding:6px 8px;border-radius:6px;background:var(--bg2);font-size:11px}
+.duel .n{font-family:var(--mono);font-weight:600;font-size:13px}
+.duel .l{font-size:9.5px;color:var(--ink3);display:block;margin-top:-1px}
+.duel .op{color:var(--ink3);font-size:11px}
+.duel .u{color:var(--ink3);font-size:10px}
+
+/* 证据图 */
+.shot{position:relative;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--bg2);height:236px;margin-bottom:6px}
+.shot img{width:100%;height:100%;object-fit:contain;display:block;background:#fff;transition:object-position .18s}
+.shot.zA img{object-position:left center;transform:scale(1.55);transform-origin:left center}
+.shot.zB img{object-position:left bottom;transform:scale(1.55);transform-origin:left bottom}
+.shot.zoom{cursor:zoom-in}
+.shot .nav{position:absolute;top:5px;right:5px;display:flex;gap:2px;background:rgba(255,255,255,.94);border-radius:5px;padding:2px;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.shot .nav button{font:inherit;font-size:9.5px;padding:2px 6px;border:0;background:transparent;border-radius:3px;cursor:pointer;color:var(--ink2)}
+.shot .nav button.on{background:var(--blueL);color:var(--blue);font-weight:600}
+.shot .cap{position:absolute;left:0;right:0;bottom:0;padding:3px 7px;font-size:9.5px;color:var(--ink2);
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,.96) 40%);display:flex;gap:6px}
+.shot .cap .k{color:var(--ink3)}
+
+/* 空 / 占位 */
+.ph{height:236px;border:1px dashed var(--line2);border-radius:7px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;color:var(--ink3);font-size:11.5px;background:var(--bg3);margin-bottom:6px}
+.ph svg{opacity:.4}
+
+/* ---------- Tab ---------- */
+.tabs{display:flex;gap:1px;margin:0;padding:0 11px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:4}
+.tabs button{font:inherit;font-size:11.5px;padding:6px 9px;border:0;background:transparent;cursor:pointer;color:var(--ink2);
+  border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.pane{display:none;padding:9px 11px 4px}
+.pane.on{display:block}
+
+/* 明细行 */
+.kv{display:grid;grid-template-columns:74px minmax(0,1fr);gap:4px 8px;font-size:11.5px}
+.kv dt{color:var(--ink3);font-size:11px}
+.kv dd{margin:0;color:var(--ink);word-break:break-word}
+.kv dd.mono{font-family:var(--mono);font-size:10.5px}
+.hit{display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed var(--line);font-size:11.5px}
+.hit:last-child{border-bottom:0}
+.hit .no{font-family:var(--mono);font-size:10px;color:var(--blue);background:var(--blueL);border-radius:3px;padding:0 4px;flex:0 0 auto;margin-top:1px}
+.hit .tx{flex:1;min-width:0}
+.hit .tx b{display:block;font-weight:600;font-size:11.5px}
+.hit .tx span{color:var(--ink3);font-size:10.5px;display:block;margin-top:1px}
+.hit .rs{font-size:10px;flex:0 0 auto;color:var(--green)}
+
+/* 执行链 */
+.exe{position:relative;padding-left:16px}
+.exe .node{position:relative;padding:5px 0 7px;font-size:11.5px}
+.exe .node:before{content:"";position:absolute;left:-11px;top:11px;width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px var(--greenL)}
+.exe .node:after{content:"";position:absolute;left:-8.5px;top:17px;bottom:-2px;width:1px;background:var(--line2)}
+.exe .node:last-child:after{display:none}
+.exe .node.cur:before{background:var(--amber);box-shadow:0 0 0 2px var(--amberL)}
+.exe .node b{font-weight:600}
+.exe .node .m{color:var(--ink3);font-size:10px;font-family:var(--mono)}
+
+/* 时间线 */
+.tl{position:relative;padding-left:15px}
+.tl-i{position:relative;padding:0 0 9px}
+.tl-i:before{content:"";position:absolute;left:-11px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--ink3)}
+.tl-i:after{content:"";position:absolute;left:-8.5px;top:11px;bottom:0;width:1px;background:var(--line2)}
+.tl-i:last-child:after{display:none}
+.tl-i.done:before{background:var(--green)} .tl-i.now:before{background:var(--amber)}
+.tl-t{font-size:11.5px;font-weight:600}
+.tl-m{font-size:10px;color:var(--ink3);font-family:var(--mono)}
+
+/* ---------- 底部 ---------- */
+.ft{flex:0 0 auto;border-top:1px solid var(--line);background:#fff;padding:8px 11px;
+  box-shadow:0 -4px 12px rgba(15,23,42,.04)}
+.ft .row{display:flex;gap:6px}
+.btn{flex:1;height:32px;border-radius:6px;border:1px solid var(--line2);background:#fff;font:inherit;font-size:12px;
+  font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;color:var(--ink2)}
+.btn:hover{background:var(--bg2)}
+.btn.ps{flex:1.6;background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.ps:hover{background:#17457e}
+.btn.rj{color:var(--red);border-color:#f0cfcf}
+.btn.rj:hover{background:var(--redL)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.ft .hint{font-size:10px;color:var(--ink3);margin-top:5px;display:flex;align-items:center;gap:4px}
+.ft .hint.warn{color:var(--amber)}
+.sign{display:none;font-size:10.5px;color:var(--green);align-items:center;gap:4px;margin-top:5px}
+.sign.on{display:flex}
+
+/* 骨架 / 遮罩 */
+.skel{position:absolute;inset:0;background:#fff;z-index:20;display:none;flex-direction:column;padding:12px;gap:9px}
+.skel.on{display:flex}
+.sk{background:linear-gradient(90deg,#f1f3f5,#f8f9fa,#f1f3f5);background-size:200% 100%;animation:sh 1.1s infinite;border-radius:5px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* 浮层 */
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;z-index:50;padding:14px}
+.mask.on{display:flex}
+.dlg{background:#fff;border-radius:9px;width:100%;max-width:340px;max-height:88vh;overflow:auto;padding:13px}
+.dlg h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:6px}
+.dlg .ln{display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.dlg .ln:last-of-type{border-bottom:0}
+.dlg .ln span{color:var(--ink3);flex:0 0 auto}
+.dlg .ln b{font-family:var(--mono);font-size:10.5px;font-weight:600;text-align:right;word-break:break-all}
+.dlg .ok{color:var(--green)} .dlg .no{color:var(--red)}
+.dlg .acts{display:flex;gap:6px;margin-top:11px}
+.dlg .acts .btn{height:30px;font-size:11.5px}
+.lb{position:fixed;inset:0;background:rgba(10,14,20,.9);display:none;align-items:center;justify-content:center;z-index:80;padding:8px}
+.lb.on{display:flex}
+.lb img{max-width:100%;max-height:100%;object-fit:contain;background:#fff;border-radius:4px}
+.note{width:100%;border:1px solid var(--line2);border-radius:5px;padding:5px 7px;font:inherit;font-size:11.5px;resize:vertical;min-height:44px}
+/* 人工动作：规则号 chips / 备注框 / 飞书成品句预览 */
+.note-lbl{font-size:10px;color:var(--ink3);margin:7px 0 3px;display:flex;justify-content:space-between;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chipr{font-size:10.5px;line-height:1;padding:4px 7px;border:1px solid var(--line2);border-radius:11px;
+  background:#fff;color:var(--ink2);cursor:pointer;user-select:none;transition:.12s}
+.chipr:hover{background:var(--bg2)}
+.chipr.on{background:var(--redL);border-color:#f3cccc;color:var(--red);font-weight:600}
+.fbprev{display:none;margin-top:7px;padding:5px 7px;background:var(--bg2);border-radius:5px;
+  font-size:10.5px;color:var(--ink2);font-family:var(--mono);word-break:break-all;line-height:1.45}
+.fbprev.on{display:block}
+.fbprev b{color:var(--ink);font-weight:600}
+.remark-row{margin-top:6px}
+.remark-row .btn{flex:1;height:28px;font-size:11.5px;color:var(--ink3);border-style:dashed}
+.remark-row .btn:hover{color:var(--blue);border-color:#b9cdf0;background:var(--blueL)}
+.toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%) translateY(8px);opacity:0;transition:.2s;
+  background:#1f2329;color:#fff;font-size:11.5px;padding:6px 12px;border-radius:16px;z-index:90;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="ic">测</div>
+  <div class="ttl">测绘质检</div>
+  <div class="sp"></div>
+  <div class="who" id="hdWho" style="display:none"></div>
+  <div class="st" id="hdSt"><i></i><span>连接中</span></div>
+</div>
+
+<div class="bind none" id="bind">
+  <div class="bic" id="bindIc">·</div>
+  <div class="rid" id="bindRid">等待左侧选中记录</div>
+  <div class="aud" id="auditBtn">核对</div>
+</div>
+
+<div class="body" id="body">
+  <div class="wrap">
+    <div class="tk"><span class="tn" id="tn">—</span><span class="pos" id="pos"></span></div>
+
+    <div class="pv" id="pv" style="display:none">
+      <div class="r1">
+        <span class="badge n" id="badge"><i></i><span id="badgeTxt">—</span></span>
+        <span class="ai">AI 判定 <b id="aiRes">—</b></span>
+      </div>
+      <div class="txt clamp" id="reason">—</div>
+      <span class="more" id="moreBtn" style="display:none">展开全文</span>
+      <div class="duel" id="duel" style="display:none">
+        <div><span class="n" id="va">—</span><span class="l" id="vaL">应然</span></div>
+        <div class="op" id="op">vs</div>
+        <div><span class="n" id="vb">—</span><span class="l" id="vbL">实然</span></div>
+        <div class="u" id="unit"></div>
+      </div>
+    </div>
+
+    <div class="shot" id="shot" style="display:none">
+      <img id="shotImg" alt="对比图">
+      <div class="nav" id="shotNav">
+        <button data-z="all" class="on">全图</button>
+        <button data-z="a">看A</button>
+        <button data-z="b">看B</button>
+      </div>
+      <div class="cap"><span class="k">证据</span><span id="shotCap">—</span></div>
+    </div>
+
+    <div class="ph" id="ph">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/>
+      </svg>
+      <span id="phTxt">请在左侧点选一条记录</span>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-t="det" class="on">明细</button>
+    <button data-t="rule">判据</button>
+    <button data-t="exe">执行</button>
+    <button data-t="log">留痕</button>
+  </div>
+
+  <div class="pane on" id="pane-det">
+    <dl class="kv">
+      <dt>任务编号</dt><dd class="mono" id="d-tn">—</dd>
+      <dt>任务名称</dt><dd id="d-nm">—</dd>
+      <dt>项目子项</dt><dd id="d-sub">—</dd>
+      <dt>当前环节</dt><dd id="d-st">—</dd>
+      <dt>记录 ID</dt><dd class="mono" id="d-rid">—</dd>
+      <dt>材料指纹</dt><dd class="mono" id="d-mh">—</dd>
+      <dt>判据版本</dt><dd class="mono" id="d-rv">—</dd>
+    </dl>
+  </div>
+
+  <div class="pane" id="pane-rule">
+    <div id="ruleList"></div>
+  </div>
+
+  <div class="pane" id="pane-exe">
+    <div class="exe" id="exeList"></div>
+  </div>
+
+  <div class="pane" id="pane-log">
+    <div class="tl" id="logList"></div>
+  </div>
+</div>
+
+<div class="ft" id="ft">
+  <div class="row" id="rowAct">
+    <button class="btn rj" id="reject">不合格 · 退回</button>
+    <button class="btn ps" id="pass">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+      通过
+    </button>
+  </div>
+  <div class="row" id="rowDone" style="display:none">
+    <button class="btn" id="undo">撤销</button>
+    <button class="btn ps" id="nextOne">下一条</button>
+  </div>
+  <div class="row remark-row">
+    <button class="btn" id="remark">附言 · 只加意见，不改结论</button>
+  </div>
+  <div class="hint" id="hint">
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7v4M8 5v.6"/></svg>
+    <span id="hintTxt">决策会写入飞书并落痕，可撤销</span>
+  </div>
+  <div class="sign" id="sign"></div>
+</div>
+
+<div class="skel" id="skel">
+  <div class="sk" style="height:16px;width:45%"></div>
+  <div class="sk" style="height:52px"></div>
+  <div class="sk" style="height:236px"></div>
+  <div class="sk" style="height:14px;width:70%"></div>
+</div>
+
+<div class="mask" id="maskAudit"><div class="dlg">
+  <h3>绑定核对</h3>
+  <div id="auditRows"></div>
+  <div class="acts"><button class="btn" id="auditClose">关闭</button></div>
+</div></div>
+
+<div class="mask" id="maskGuard"><div class="dlg">
+  <h3 style="color:var(--red)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2l6 11H2L8 2z"/><path d="M8 6.5v3M8 11.4v.5"/></svg>
+    已拦截：左表已切到别的记录
+  </h3>
+  <div style="font-size:11.5px;color:var(--ink2);margin-bottom:8px">你看到的是下面第一条，此刻左侧选中的是第二条。这次判定不写飞书、不留痕。</div>
+  <div class="ln"><span>本次判定绑定</span><b id="gA">—</b></div>
+  <div class="ln"><span>左表当前选中</span><b id="gB">—</b></div>
+  <div class="acts">
+    <button class="btn ps" id="gOk">知道了，跟到当前行</button>
+  </div>
+</div></div>
+
+<div class="mask" id="maskReject"><div class="dlg">
+  <h3 style="color:var(--red)">不合格 · 退回整改</h3>
+  <div class="note-lbl"><span>问题类型（可多选，对应规则号）</span></div>
+  <div class="chips" id="rejChips"></div>
+  <div class="note-lbl"><span>问题说明 <b style="color:var(--red)">必填</b></span><span id="rejCnt">0/200</span></div>
+  <textarea class="note" id="rejectNote" maxlength="200" placeholder="写清哪一条对不上、差多少。例：清单 12 点，报告正文写 9 点"></textarea>
+  <div class="fbprev" id="rejPrev"></div>
+  <div class="acts"><button class="btn" id="rejectCancel">取消</button><button class="btn ps" id="rejectOk">确认退回</button></div>
+</div></div>
+
+<div class="mask" id="maskNote"><div class="dlg">
+  <h3>附言 · 不改结论</h3>
+  <div style="font-size:11px;color:var(--ink3);margin-bottom:2px">只往「审核意见说明」追加一句，结论保持不动；已决策的记录也能补。</div>
+  <div class="note-lbl"><span>人工意见</span><span id="ntCnt">0/200</span></div>
+  <textarea class="note" id="noteText" maxlength="200" placeholder="例：图面注记 964.18 与清单一致；建议下次补交控制点成果表"></textarea>
+  <div class="fbprev" id="ntPrev"></div>
+  <div class="acts"><button class="btn" id="noteCancel">取消</button><button class="btn ps" id="noteOk">保存附言</button></div>
+</div></div>
+
+<div class="mask" id="maskPass"><div class="dlg">
+  <h3 style="color:var(--amber)">人工改判 · 需写理由</h3>
+  <div style="font-size:11px;color:var(--ink2);margin-bottom:2px">AI 判的是「<b id="passAi">不合格</b>」，你改判放行。理由会写进审核意见说明，留痕可查。</div>
+  <div class="note-lbl"><span>改判理由 <b style="color:var(--red)">必填</b></span><span id="psCnt">0/200</span></div>
+  <textarea class="note" id="passNote" maxlength="200" placeholder="例：差异已核实为版本更新，补件已随本次成果提交"></textarea>
+  <div class="fbprev" id="psPrev"></div>
+  <div class="acts"><button class="btn" id="passCancel">取消</button><button class="btn ps" id="passOk">确认通过</button></div>
+</div></div>
+
+<div class="lb" id="lb"><img id="lbImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ============================================================================
+ * 飞书多维表格扩展 · 质检面板
+ *
+ * 通信：@lark-base-open/js-sdk（本地托管，不走 CDN）
+ *   页面与宿主只有 window.parent.postMessage 一条通道，allowedHostOrigin=["*"]，
+ *   所以本页放自有域名、SDK 由自有域名托管，均可正常工作。
+ *
+ * 三道闸保证「右边就是左边选的那条」：
+ *   ① 唯一键：全程只认 recordId（本表存在同任务号多条记录，任务号不能当键）
+ *   ② 变化即清：换记录先盖骨架屏并作废旧请求（seq 自增）
+ *   ③ 提交复核：点按钮那一刻重新取一次 getSelection，对不上就拦
+ * ========================================================================== */
+
+const $ = s => document.querySelector(s);
+const HOST = location.origin;
+
+/* ---- 访问口令：插件运行地址里带上 ?k=…，此后所有数据请求都带它 ---- */
+const QC_K = new URLSearchParams(location.search).get('k') || '';
+function apiUrl(p){ return HOST + p; }
+function apiFetch(p, opt){
+  const o = Object.assign({cache:'no-store'}, opt || {});
+  o.headers = Object.assign({}, o.headers || {}, QC_K ? {'X-QC-Token': QC_K} : {});
+  return fetch(apiUrl(p), o);
+}
+function imgUrl(u, w){
+  const sep = u.indexOf('?') >= 0 ? '&' : '?';
+  return u + sep + 'w=' + w + (QC_K ? '&k=' + encodeURIComponent(QC_K) : '');
+}
+
+/* ---- SDK：宿主注入优先，否则用本地托管包 ---- */
+let bitable = null, bridge = null, sdkFrom = 'none';
+
+function withTimeout(p, ms, label){
+  let t;
+  return Promise.race([
+    p,
+    new Promise((_, rej)=> t = setTimeout(()=> rej(new Error(label+' 超时')), ms))
+  ]).finally(()=> clearTimeout(t));
+}
+
+async function loadSdk(){
+  if(window.bitable && window.bitable.base){
+    bitable = window.bitable;
+    bridge = window.bitable.bridge || null;
+    sdkFrom = '宿主注入'; return;
+  }
+  try{
+    const m = await withTimeout(import('/vendor/sdk/bitable_app.mjs'), 8000, 'SDK 加载');
+    const pkg = (m && m.bitable) ? m : (m && m.default && m.default.bitable ? m.default : null);
+    if(pkg){
+      bitable = pkg.bitable;
+      bridge = pkg.bridge || null;
+      sdkFrom = '本地包'; return;
+    }
+    sdkFrom = '包内无 bitable';
+  }catch(e){
+    sdkFrom = '加载失败：' + (e.message||e);
+  }
+}
+
+/* ---- 登录用户 ----
+ * 真宿主里 bridge.getUserId() → bitable.Bridge_getUserId，由飞书客户端填入当前登录人。
+ * 拿不到（未授权/非宿主/假宿主）一律返回 null，绝不阻塞面板。
+ */
+function whoLabel(id){
+  const s = String(id || '');
+  if(!s) return '';
+  return (s.startsWith('ou_') ? 'ou_…' : '…') + s.slice(-4);
+}
+
+/* 姓名不在 SDK 里：bridge 只给 open_id。后端按 open_id 查本地映射表
+   （来源＝任务表人员字段，见 build_people.py）。查不到就退回缩写，不编造。 */
+async function resolveName(uid){
+  try{
+    const r = await apiFetch('/api/people?ids=' + encodeURIComponent(uid));
+    const j = await r.json();
+    return (j && j.ok && j.names && j.names[uid]) || '';
+  }catch(e){ return ''; }
+}
+
+async function getUserSafe(){
+  if(!bridge) return null;
+  const call = async (fn)=>{
+    try{
+      if(typeof bridge[fn] !== 'function') return null;
+      const v = await withTimeout(bridge[fn](), 2500, fn);
+      return (typeof v === 'string' && v) ? v : null;
+    }catch(e){ return null; }
+  };
+  const id = await call('getUserId');
+  const baseId = id ? null : await call('getBaseUserId');
+  const uid = id || baseId;
+  if(!uid) return null;
+  const name = await resolveName(uid);
+  return { id: uid, name, byBase: !id, label: name || whoLabel(uid) };
+}
+
+function actorName(){ return (S.who && S.who.label) || '未知用户'; }
+
+function renderWho(){
+  const el = $('#hdWho');
+  if(!el) return;
+  if(!S.who){ el.style.display = 'none'; el.textContent = ''; el.removeAttribute('title'); return; }
+  el.style.display = 'flex';
+  if(S.who.name){
+    el.classList.remove('unk');
+    el.textContent = S.who.name;
+    el.title = '当前登录：' + S.who.name + '（' + S.who.id + '）';
+  }else{
+    el.classList.add('unk');
+    el.textContent = '?' + S.who.label;
+    el.title = '当前登录：' + S.who.id +
+      (S.who.byBase ? '（Base 内唯一标识，非 open_id）' : '') +
+      '\n姓名未收录：该 id 不在任务表人员字段里' +
+      '\n若所有人都显示成 ?ou_…，说明 id 体系与名单对不上，需要换个取 id 的口子';
+  }
+}
+
+async function getSelectionSafe(){
+  if(!bitable) return null;
+  try{
+    return await withTimeout(bitable.base.getSelection(), 3000, 'getSelection');
+  }catch(e){
+    return { __error: e.message || String(e) };
+  }
+}
+
+/* ---- 状态 ---- */
+const S = {
+  locked: null,     // 本屏绑定的 recordId
+  seq: 0,           // 渲染序号，旧结果一律作废
+  rec: null,        // 当前记录详情
+  imgFull: null,    // 原图地址（灯箱用）
+  decided: null,    // 决策状态
+  drift: false,
+  guard: false,     // 拦截弹窗打开期间暂停跟随，避免背后偷偷换记录
+  modal: false,     // 填写类弹窗打开期间也暂停跟随（附言/退回/改判）
+  who: null,        // 当前登录人 { id, byBase, label }，取不到为 null
+  wb: null,         // 写回配置 { enabled, conclusion_field, note_field, value_map, actor_field }
+  booted: false
+};
+
+/* ---- 顶栏状态 ---- */
+function setHead(kind, text){
+  const el = $('#hdSt');
+  el.className = 'st ' + kind;
+  el.querySelector('span').textContent = text;
+}
+
+/* ---- 绑定条 ---- */
+function setBind(kind, rid, extra){
+  const b = $('#bind');
+  b.className = 'bind ' + kind;
+  const ic = { ok:'✓', sync:'…', drift:'!', none:'·' }[kind] || '·';
+  $('#bindIc').textContent = ic;
+  const el = $('#bindRid');
+  if(kind === 'none'){ el.textContent = rid || '等待左侧选中记录'; }
+  else if(kind === 'sync'){ el.innerHTML = '同步中 · <b>' + esc(rid) + '</b>'; }
+  else if(kind === 'drift'){
+    el.innerHTML = '未同步 · 左表已切到 <b>' + esc(extra || '') + '</b>';
+  }else{
+    el.innerHTML = (extra ? esc(extra) + ' · ' : '') + '<b>' + esc(rid) + '</b>';
+  }
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---- 空状态 ---- */
+function showEmpty(msg){
+  S.rec = null;
+  $('#pv').style.display = 'none';
+  $('#shot').style.display = 'none';
+  $('#ph').style.display = 'flex';
+  $('#phTxt').textContent = msg;
+  $('#tn').textContent = '—';
+  $('#pos').textContent = '';
+  $('#tabs').style.visibility = 'hidden';
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  $('#rowAct').style.display = 'none';
+  $('#rowDone').style.display = 'none';
+  $('#hint').style.display = 'none';
+  $('#sign').classList.remove('on');
+  setHead('', '未选中记录');
+}
+
+function showBody(){
+  $('#ph').style.display = 'none';
+  $('#pv').style.display = '';
+  $('#shot').style.display = '';
+  $('#tabs').style.visibility = 'visible';
+  $('#rowAct').style.display = 'flex';
+  $('#hint').style.display = 'flex';
+}
+
+/* ---- 主流程：绑定一条记录 ---- */
+function setBusy(on){
+  ['#pass','#reject','#undo','#nextOne'].forEach(s=>{
+    const b = $(s);
+    if(b) b.disabled = on;
+  });
+  const hint = $('#hintTxt');
+  if(hint && on) hint.textContent = '正在切换记录，按钮已锁定';
+  else if(hint) hint.textContent = '决策会写入飞书并落痕，可撤销';
+}
+
+async function bind(rid){
+  const seq = ++S.seq;
+  S.locked = rid;
+  S.drift = false;
+  S.rec = null;                        // 先清数据：任何读旧数据的渲染都会落到空态
+  setBusy(true);                       // 切换期间禁止提交，杜绝「看 A 判 B」
+  $('#skel').classList.add('on');
+  setBind('sync', rid);
+  setHead('wn', '读取中');
+
+  let data;
+  try{
+    const r = await apiFetch('/api/record/' + encodeURIComponent(rid));
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '接口返回失败');
+    data = j.record;
+  }catch(e){
+    if(seq !== S.seq) return;
+    $('#skel').classList.remove('on');
+    setBusy(false);
+    showEmpty('这条记录没有质检数据（' + (e.message||e) + '）');
+    setBind('none', '取数失败 · ' + rid);
+    return;
+  }
+  if(seq !== S.seq) return;         // 晚到的旧结果直接丢
+
+  S.rec = data;
+  render(data);
+  $('#skel').classList.remove('on');
+  setBusy(false);
+  setBind('ok', rid, '第 ' + (data.index || '?') + ' 条');
+  setHead('ok', data.state === '确认' ? '已确认' : data.state === '打回' ? '已打回' : '已绑定');
+}
+
+/* ---- 渲染 ---- */
+function render(d){
+  showBody();
+
+  $('#tn').textContent = d.tn;
+  $('#pos').textContent = d.mode ? '· ' + d.mode + ' 模板' : '';
+
+  // 结论卡
+  const pv = $('#pv');
+  pv.className = 'pv ' + (d.tone === 'red' ? 'red' : d.tone === 'gray' ? 'gray' : 'green');
+  const badge = $('#badge');
+  badge.className = 'badge ' + (d.tone === 'red' ? 'r' : d.tone === 'gray' ? 'n' : 'g');
+  $('#badgeTxt').textContent = d.badge;
+  $('#aiRes').textContent = d.ai || '通过';
+
+  const reason = $('#reason');
+  reason.textContent = d.reason || '（无判定说明）';
+  reason.className = 'txt clamp';
+
+  // 对撞条：从理由里抽两个数（形如「A 与 B 一致」），抽不到就隐藏
+  const duel = $('#duel');
+  const nums = (d.reason || '').match(/-?\d+(?:\.\d+)?/g) || [];
+  if(nums.length >= 2 && d.mode !== 'blank'){
+    $('#va').textContent = nums[0];
+    $('#vb').textContent = nums[1];
+    $('#vaL').textContent = '应然（清单/判据）';
+    $('#vbL').textContent = '实然（图面/报告）';
+    $('#op').textContent = nums[0] === nums[1] ? '=' : '≠';
+    $('#unit').textContent = (d.reason.match(/(平方米|㎡|m²|米|点|个|条)选出?|平方米|㎡|m²/) || [''])[0];
+    duel.style.display = 'flex';
+  }else{
+    duel.style.display = 'none';
+  }
+
+  // 证据图：列表用窄图（几十 KB），点开大图时才取原图
+  if(d.img_url){
+    S.imgFull = imgUrl(d.img_url, 1600);
+    $('#shotImg').src = imgUrl(d.img_url, 780);
+    $('#shot').className = 'shot zoom';
+    $('#shotCap').textContent = '对比_' + (d.index||'') + ' · ' + d.mode + ' 模板';
+    $('#shotNav').style.display = 'flex';
+  }else{
+    $('#shot').style.display = 'none';
+  }
+
+  // 明细
+  $('#d-tn').textContent = d.tn;
+  $('#d-nm').textContent = d.name || '—';
+  $('#d-sub').textContent = d.sub || '—';
+  $('#d-st').textContent = d.stage || '—';
+  $('#d-rid').textContent = d.record_id;
+  $('#d-mh').textContent = d.material_hash;
+  $('#d-rv').textContent = d.rule_ver + ' / ' + d.worker_ver;
+
+  renderRules(d);
+  renderExe(d);
+  renderLog(d);
+  renderState(d);
+
+  // 展开全文
+  requestAnimationFrame(()=>{
+    const need = reason.scrollHeight > reason.clientHeight + 2;
+    $('#moreBtn').style.display = need ? '' : 'none';
+  });
+}
+
+const RULE_TXT = {
+  area:  ['P-013 面积对账', '清单数量 ↔ 图面「总面积」注记逐项比对；几何面积只作辅助，图框会吞注记'],
+  point: ['P-021 点位对账', '专用图层点位数 ↔ 清单条数；POINT / INSERT / 坐标配对 / 去重坐标任一命中即一致'],
+  hpts:  ['P-039 高程点质量', '无面积注记时核点质量：间距 p90、覆盖率、游离点、坐标有效性'],
+  blank: ['P-042 空白模板核验', '清单/交付件为空时按交付件实有内容核对，不缺项即通过']
+};
+
+function renderRules(d){
+  const box = $('#ruleList');
+  const r = RULE_TXT[d.mode] || ['通用对账', '按清单逐项核对图面与报告'];
+  box.innerHTML = `
+    <div class="hit"><span class="no">${d.mode||'-'}</span><div class="tx"><b>${r[0]}</b><span>${r[1]}</span></div><span class="rs">✓ 已执行</span></div>
+    <div class="hit"><span class="no">P-004</span><div class="tx"><b>清单有的必比</b><span>清单行带数量就必须找到对位，四层：清单→报告自述→校验表→图面；差异写说明不记问题</span></div><span class="rs">✓ 已执行</span></div>
+    <div class="hit"><span class="no">E15</span><div class="tx"><b>质量检查表意见栏</b><span>「检查记录及意见」整列为空 → 严重；整表缺失不记</span></div><span class="rs">${d.mode==='blank'?'✓ 已执行':'— 不适用'}</span></div>
+    <div class="hit"><span class="no">BADGE</span><div class="tx"><b>徽章口径</b><span>√一致绿 / ×不一致红 / 并列核对灰；差异登记类用红徽章但标题写「登记·不改判」</span></div><span class="rs">✓</span></div>`;
+}
+
+function renderExe(d){
+  const box = $('#exeList');
+  const t = (s)=> s;
+  box.innerHTML = `
+    <div class="node"><b>取数</b> <span class="m">material_hash ${d.material_hash}</span></div>
+    <div class="node"><b>渲染对比图</b> <span class="m">cmp_fig --mode ${d.mode||'auto'}</span></div>
+    <div class="node"><b>图面 ↔ 清单对账</b> <span class="m">${d.mode==='hpts'?'点质量':'面积/点数'}</span></div>
+    <div class="node"><b>写入飞书</b> <span class="m">${d.file_token ? '已上传 ' + d.file_token.slice(0,10) + '…' : (d.upload||'待写')}</span></div>
+    <div class="node cur"><b>人工确认</b> <span class="m">当前节点</span></div>`;
+}
+
+function renderLog(d){
+  const box = $('#logList');
+  const hist = d.history || [];
+  const items = [
+    { c:'done', t:'取数完成', m:'material_hash ' + d.material_hash },
+    { c:'done', t:'AI 判定：' + (d.ai||'通过'), m:'run ' + d.run_id },
+    { c:'done', t:'对比图入飞书', m: d.file_token ? d.file_token : (d.upload||'—') }
+  ];
+  const ACT_TXT = { '确认':'通过', '打回':'打回（不合格）', '附言':'附言（结论未改）', '撤销':'撤销' };
+  hist.forEach(h=>{
+    const t = ACT_TXT[h.action] || h.action;
+    items.push({ c:'done', t:'人工' + t, m: h.actor + ' · ' + h.created_at + (h.note ? ' · ' + h.note : '') });
+  });
+  const has = hist.some(h=> h.action === '确认' || h.action === '打回');
+  if(!has) items.push({ c:'now', t:'待人工确认', m:'当前节点' });
+  box.innerHTML = items.map(i=>
+    `<div class="tl-i ${i.c}"><div class="tl-t">${esc(i.t)}</div><div class="tl-m">${esc(i.m)}</div></div>`
+  ).join('');
+}
+
+function renderState(d){
+  const st = d.state || '待确认';
+  const isDecided = st === '确认' || st === '打回';
+  if(isDecided){
+    $('#rowAct').style.display = 'none';
+    $('#rowDone').style.display = 'flex';
+    $('#sign').classList.add('on');
+    $('#sign').textContent = '人工' + (st === '打回' ? '打回 · 不合格' : (st === '确认' ? '通过' : st))
+      + '：' + (d.decided_by||'') + ' 于 ' + (d.decided_at||'') + (d.decided_note ? '（'+d.decided_note+'）' : '');
+    $('#hintTxt').textContent = '按 Enter 或点「下一条」继续';
+  }else{
+    $('#rowAct').style.display = 'flex';
+    $('#rowDone').style.display = 'none';
+    $('#sign').classList.remove('on');
+  }
+}
+
+/* ---- 选中跟随 ---- */
+async function tick(first){
+  if(S.guard || S.modal) return;      // 拦截弹窗 / 填写弹窗期间不跟随
+  const s = await getSelectionSafe();
+
+  if(s && s.__error){
+    setHead('wn', '宿主未应答');
+    if(first) showEmpty('拿不到选中记录：' + s.__error);
+    return;
+  }
+  if(!s){
+    setHead('', sdkFrom === 'none' ? 'SDK 未加载' : '连接中');
+    if(first) showEmpty('SDK 未加载：' + sdkFrom);
+    return;
+  }
+  const rid = s.recordId;
+  if(!rid){
+    setBind('none');
+    showEmpty('请在左侧点选一条记录');
+    S.locked = null;
+    return;
+  }
+  if(rid !== S.locked){
+    bind(rid);
+  }else if(S.drift){
+    S.drift = false;
+    setBind('ok', rid, '第 ' + ((S.rec && S.rec.index) || '?') + ' 条');
+    setHead('ok', '已绑定');
+  }
+}
+
+/* ---- 提交 ---- */
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(t.__t);
+  t.__t = setTimeout(()=> t.classList.remove('on'), 1900);
+}
+
+/* ============ 人工动作：三个出口 ============
+   通过    采纳 / 放行；AI 原判不合格时属人工改判，必须写理由
+   不合格  退回整改；必须写说明，可勾问题类型
+   附言    只加意见，结论不动；已决策的记录也能补
+*/
+const RULE_TAGS = [
+  { v:'P-013', t:'面积对账' }, { v:'P-021', t:'点位对账' },
+  { v:'P-039', t:'高程点' },   { v:'P-004', t:'清单缺项' },
+  { v:'E15',   t:'意见栏空' }, { v:'P-042', t:'空白模板' },
+  { v:'材料',  t:'材料不齐' }, { v:'超期',  t:'超期' },
+  { v:'其他',  t:'其他' }
+];
+
+function buildChips(){
+  const box = $('#rejChips');
+  if(!box || box.dataset.built) return;
+  box.innerHTML = RULE_TAGS.map(x=> `<span class="chipr" data-v="${esc(x.v)}">${esc(x.t)}</span>`).join('');
+  box.dataset.built = '1';
+}
+function pickedCodes(){
+  return [...document.querySelectorAll('#rejChips .chipr.on')].map(e=> e.dataset.v);
+}
+function rejectPreview(){
+  const n = $('#rejectNote').value.trim();
+  const c = pickedCodes();
+  $('#rejCnt').textContent = n.length + '/200';
+  const p = $('#rejPrev');
+  if(!n && !c.length){ p.classList.remove('on'); p.textContent = ''; return; }
+  p.innerHTML = '<b>写飞书：</b>' + esc((c.length ? '不合格（' + c.join(',') + '）：' : '不合格：') + n);
+  p.classList.add('on');
+}
+
+/* ===== 写回飞书：这次是「登录人自己写」=====
+ * 关键点：请求由浏览器发出，宿主用当前登录人的身份调飞书接口。
+ * 飞书侧「修改人」= 点按钮的这个人；越权则由宿主拒绝，等于免费按人鉴权。
+ * 服务端全程不持 token、不调飞书，只在事后收一条回执。
+ */
+const FLD_TEXT = 1, FLD_SINGLE = 3, FLD_USER = 11;
+
+async function getTableSafe(){
+  if(!bitable || !bitable.base) throw new Error('SDK 未就绪');
+  if(!S._table){
+    if(!bitable.base.getActiveTable) throw new Error('宿主未提供 getActiveTable');
+    S._table = await withTimeout(bitable.base.getActiveTable(), 3500, 'getActiveTable');
+  }
+  if(!S._table) throw new Error('取不到当前数据表');
+  return S._table;
+}
+
+async function fieldMetaSafe(table, fid){
+  if(!fid) return null;
+  try{
+    const list = await withTimeout(table.getFieldMetaList(), 3500, 'getFieldMetaList');
+    return (list || []).find(f => f.id === fid) || null;
+  }catch(e){ return null; }
+}
+
+/* 按字段类型拼值；拼不出合法值就返回 {err}，绝不瞎写 */
+function buildValue(meta, text, opts){
+  const t = meta && typeof meta.type === 'number' ? meta.type : null;
+  if(t === FLD_SINGLE){
+    const options = ((meta.property && meta.property.options) || []);
+    const hit = options.find(o => (o.name || o.text) === text);
+    if(!hit) return { err: '字段无「' + text + '」选项（现有：' +
+      options.map(o => o.name || o.text).join('/') + '）' };
+    return { value: { id: hit.id, text: hit.name || hit.text } };
+  }
+  if(t === FLD_TEXT) return { value: [{ type:'text', text: text }] };
+  if(t === FLD_USER) return { value: (opts && opts.uid) ? [{ id: opts.uid }] : { err:'无 open_id' } };
+  // 拿不到 meta：先按文本写，飞书多数文本类字段能收
+  return { value: [{ type:'text', text: text }] };
+}
+
+async function writeBack(rec, action, fbText, actionId){
+  const cfg = S.wb;
+  if(!cfg || !cfg.enabled) return { enabled:false, results:[] };
+  if(action !== '确认' && action !== '打回') return { enabled:true, results:[], skip:'该动作不改飞书' };
+
+  let table;
+  try{ table = await getTableSafe(); }
+  catch(e){ return { enabled:true, results:[{ ok:false, field_id:'-', error:'SDK 不可用：' + (e.message||e) }] }; }
+
+  // 先问一句能不能写：只读时直接给结论，不去试错。
+  // isEditable 挂在 base 上（整个数据表是否编辑态），不是 table 上的方法。
+  try{
+    const baseApi = bitable && bitable.base;
+    if(baseApi && baseApi.isEditable){
+      const ed = await withTimeout(baseApi.isEditable(), 2500, 'isEditable');
+      if(ed === false){
+        return { enabled:true, results:[{ ok:false, field_id:'-',
+          error:'当前人在此表为只读，宿主拒绝写入' }] };
+      }
+    }
+  }catch(e){ /* 判不了就继续试，失败会体现在结果里 */ }
+
+  const jobs = [];
+  const cm = await fieldMetaSafe(table, cfg.conclusion_field);
+  const cv = buildValue(cm, (cfg.value_map || {})[action] || action, { uid: S.who && S.who.id });
+  if(cv.err) jobs.push({ field_id: cfg.conclusion_field, ok:false, error: '结论字段：' + cv.err });
+  else jobs.push({ field_id: cfg.conclusion_field, value: cv.value, ok:null, text:(cfg.value_map||{})[action] });
+
+  // 说明只在有内容时写，避免把 AI 原话或空值搅进去
+  const noteText = (fbText || '').trim();
+  if(cfg.note_field && noteText){
+    const nm = await fieldMetaSafe(table, cfg.note_field);
+    const nv = buildValue(nm, noteText, { uid: S.who && S.who.id });
+    if(nv.err) jobs.push({ field_id: cfg.note_field, ok:false, error: '说明字段：' + nv.err });
+    else jobs.push({ field_id: cfg.note_field, value: nv.value, ok:null, text: noteText });
+  }
+
+  // 人员字段：写 open_id，姓名写进去无效
+  if(cfg.actor_field && S.who && S.who.id){
+    jobs.push({ field_id: cfg.actor_field, value: [{ id: S.who.id }], ok:null, text: S.who.id });
+  }
+
+  for(const j of jobs){
+    if(j.ok === false) continue;                    // 拼值就失败，不试
+    try{
+      const ok = await withTimeout(
+        table.setCellValue(j.field_id, rec.record_id, j.value), 6000, 'setCellValue');
+      j.ok = !!ok;
+      if(!ok) j.error = '宿主返回 false（多半是字段权限或值不合法）';
+    }catch(e){
+      j.ok = false;
+      j.error = (e && (e.message || e.code)) ? String(e.message || e.code) : '写入异常';
+    }
+  }
+  return { enabled:true, results: jobs };
+}
+
+/* 把写回结果报给服务端留痕；失败也不影响本地决策已经落库 */
+async function reportWrite(rec, res, actionId){
+  if(!res || !res.results || !res.results.length) return;
+  try{
+    await apiFetch('/api/decide/receipt', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        record_id: rec.record_id, action_id: actionId,
+        actor: actorName(), actor_id: (S.who && S.who.id) || '',
+        results: res.results.map(x=>({ field_id:x.field_id, ok:!!x.ok, error:x.error||null, value:x.value||null }))
+      })
+    });
+  }catch(e){ /* 回执丢了不影响主流程，但界面上会显示写回失败 */ }
+}
+
+function wbSummary(res){
+  if(!res) return '';
+  if(res.enabled === false) return '';
+  if(res.skip) return '飞书未动（' + res.skip + '）';
+  const okN = (res.results||[]).filter(x=>x.ok).length;
+  const bad = (res.results||[]).filter(x=>!x.ok);
+  if(!bad.length) return okN ? '已写入飞书 ' + okN + ' 个字段' : '';
+  return '飞书写入失败：' + bad.map(b=>b.error||'未知').join('；');
+}
+
+async function submit(action, note, codes){
+  if(!S.locked || !S.rec) return toast('还没有绑定记录');
+  // 数据错位防御：画面里的数据必须就是当前锁定的那条
+  if(S.rec.record_id !== S.locked) return toast('画面与记录不一致，请稍候再试');
+
+  // 第三道闸：此刻再取一次
+  const now = await getSelectionSafe();
+  if(!now || now.__error || !now.recordId || now.recordId !== S.locked){
+    S.drift = true;
+    S.guard = true;                    // 冻结跟随，弹窗内容才不会被背后改掉
+    $('#gA').textContent = (S.rec.tn || '') + ' · ' + S.locked;
+    $('#gB').textContent = now && now.recordId ? (now.recordId) : '（读不到）';
+    $('#maskGuard').classList.add('on');
+    setBind('drift', S.locked, now && now.recordId ? now.recordId : '未知');
+    setHead('wn', '未同步');
+    return;
+  }
+
+  const btn = action === '确认' ? $('#pass') : (action === '打回' ? $('#reject') : $('#remark'));
+  const old = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = '提交中…';
+
+  try{
+    const r = await apiFetch('/api/decide', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ record_id: S.locked, action, actor: actorName(),
+                             actor_id: (S.who && S.who.id) || '',
+                             note: note || '', codes: codes || [], override:false })
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '写入失败');
+    const curRec = S.rec;
+    // 本地已落库；这一步用登录人身份写飞书。写不进去不改本地结论，但必须说清楚。
+    const wb = await writeBack(curRec, action, j.fb_text, j.action_id);
+    await reportWrite(curRec, wb, j.action_id);
+    await bind(S.locked);
+    const tip = action === '确认' ? '已通过 · 按 Enter 到下一条'
+              : action === '打回' ? '已退回 · 按 Enter 到下一条'
+              : '附言已记 · 结论未动';
+    const ws = wbSummary(wb);
+    toast(ws ? (tip + ' · ' + ws) : tip);
+  }catch(e){
+    toast('失败：' + (e.message||e));
+    await bind(S.locked);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = old;
+  }
+}
+
+async function nextRecord(){
+  let ids = [];
+  try{
+    const r = await apiFetch('/api/records').then(x=>x.json());
+    ids = (r.items||[]).map(x=>x.record_id);
+  }catch(e){ return; }
+  const i = ids.indexOf(S.locked);
+  const nxt = ids[(i+1) % ids.length];
+  if(!nxt) return;
+  // 真实环境里用 ui.selectRecordIdList 让左表跟着跳；失败就只切面板
+  try{
+    if(bitable && bitable.ui && bitable.ui.selectRecordIdList){
+      await withTimeout(bitable.ui.selectRecordIdList([nxt]), 2500, 'selectRecordIdList');
+      return;
+    }
+  }catch(e){ /* 落回本地切换 */ }
+  bind(nxt);
+}
+
+/* ---- 交互绑定 ---- */
+/* 填写弹窗打开时冻结跟随：否则背景行被切走，人在弹窗里写的内容会写错记录 */
+function syncModal(){ S.modal = document.querySelectorAll('.mask.on').length > 0; }
+function openModal(id){ $(id).classList.add('on'); syncModal(); }
+function closeModal(id){ $(id).classList.remove('on'); syncModal(); }
+
+/* 通过：AI 判不合格时是改判，必须写理由；AI 判通过则一键过 */
+$('#pass').addEventListener('click', ()=>{
+  const aiNo = S.rec && S.rec.ai && S.rec.ai !== '通过';
+  if(aiNo){
+    $('#passAi').textContent = S.rec.ai;
+    $('#passNote').value = '';
+    $('#psCnt').textContent = '0/200';
+    $('#psPrev').classList.remove('on');
+    $('#psPrev').textContent = '';
+    openModal('#maskPass');
+    setTimeout(()=> $('#passNote').focus(), 60);
+    return;
+  }
+  submit('确认', '');
+});
+
+/* 不合格：选问题类型 + 写说明 */
+$('#reject').addEventListener('click', ()=>{
+  buildChips();
+  $('#rejectNote').value = '';
+  document.querySelectorAll('#rejChips .chipr').forEach(e=> e.classList.remove('on'));
+  $('#rejCnt').textContent = '0/200';
+  $('#rejPrev').classList.remove('on');
+  $('#rejPrev').textContent = '';
+  openModal('#maskReject');
+  setTimeout(()=> $('#rejectNote').focus(), 60);
+});
+$('#rejectCancel').addEventListener('click', ()=> closeModal('#maskReject'));
+$('#rejectNote').addEventListener('input', rejectPreview);
+$('#rejChips').addEventListener('click', e=>{
+  const t = e.target.closest('.chipr');
+  if(!t) return;
+  t.classList.toggle('on');
+  rejectPreview();
+});
+$('#rejectOk').addEventListener('click', ()=>{
+  const n = $('#rejectNote').value.trim();
+  const c = pickedCodes();
+  if(!n) return toast('请写清问题说明：哪一条对不上、差多少');
+  closeModal('#maskReject');
+  submit('打回', n, c);
+});
+
+/* 附言：不改结论，随时可补，已决策也能加 */
+$('#remark').addEventListener('click', ()=>{
+  if(!S.locked) return toast('还没有绑定记录');
+  $('#noteText').value = '';
+  $('#ntCnt').textContent = '0/200';
+  $('#ntPrev').classList.remove('on');
+  $('#ntPrev').textContent = '';
+  openModal('#maskNote');
+  setTimeout(()=> $('#noteText').focus(), 60);
+});
+$('#noteCancel').addEventListener('click', ()=> closeModal('#maskNote'));
+$('#noteText').addEventListener('input', ()=>{
+  const n = $('#noteText').value.trim();
+  $('#ntCnt').textContent = n.length + '/200';
+  const p = $('#ntPrev');
+  if(!n){ p.classList.remove('on'); p.textContent = ''; return; }
+  p.innerHTML = '<b>写飞书（追加一句）：</b>' + esc(n);
+  p.classList.add('on');
+});
+$('#noteOk').addEventListener('click', ()=>{
+  const n = $('#noteText').value.trim();
+  if(!n) return toast('附言不能为空');
+  closeModal('#maskNote');
+  submit('附言', n);
+});
+
+/* 改判放行 */
+$('#passCancel').addEventListener('click', ()=> closeModal('#maskPass'));
+$('#passNote').addEventListener('input', ()=>{
+  const n = $('#passNote').value.trim();
+  $('#psCnt').textContent = n.length + '/200';
+  const p = $('#psPrev');
+  if(!n){ p.classList.remove('on'); p.textContent = ''; return; }
+  p.innerHTML = '<b>写飞书：</b>' + esc('通过（人工改判，AI 原判 '
+    + ($('#passAi').textContent || '不合格') + '）：' + n);
+  p.classList.add('on');
+});
+$('#passOk').addEventListener('click', ()=>{
+  const n = $('#passNote').value.trim();
+  if(!n) return toast('改判放行必须写理由');
+  closeModal('#maskPass');
+  submit('确认', n);
+});
+$('#undo').addEventListener('click', async ()=>{
+  if(!S.locked) return;
+  try{
+    const r = await apiFetch('/api/decide', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ record_id:S.locked, action:'撤销', actor: actorName(),
+                             actor_id:(S.who && S.who.id) || '',
+                             note:'撤销上一次判定', override:true })
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error||'撤销失败');
+    await bind(S.locked);
+    toast('已撤销');
+  }catch(e){ toast('撤销失败：' + (e.message||e)); }
+});
+$('#nextOne').addEventListener('click', ()=> nextRecord());
+
+$('#moreBtn').addEventListener('click', ()=>{
+  const r = $('#reason');
+  const open = r.classList.contains('clamp');
+  r.className = 'txt' + (open ? '' : ' clamp');
+  $('#moreBtn').textContent = open ? '收起' : '展开全文';
+});
+
+document.getElementById('shotNav').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const shot = $('#shot');
+  shot.classList.remove('zA','zB');
+  if(b.dataset.z === 'a') shot.classList.add('zA');
+  if(b.dataset.z === 'b') shot.classList.add('zB');
+  document.querySelectorAll('#shotNav button').forEach(x=>x.classList.toggle('on', x === b));
+});
+$('#shot').addEventListener('click', e=>{
+  if(e.target.closest('#shotNav')) return;
+  $('#lbImg').src = S.imgFull || $('#shotImg').src;   // 大图取原图，不做缩略
+  $('#lb').classList.add('on');
+});
+$('#lb').addEventListener('click', ()=> $('#lb').classList.remove('on'));
+
+$('#tabs').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  $('#pane-' + b.dataset.t).classList.add('on');
+});
+
+/* 核对浮层 */
+$('#auditBtn').addEventListener('click', async ()=>{
+  const now = await getSelectionSafe();
+  const rid = now && now.recordId;
+  const rec = S.rec || {};
+  const row = (label, val, yes)=>{
+    const cls = yes === true ? 'ok' : yes === false ? 'no' : '';
+    const mark = yes === true ? ' ✓' : yes === false ? ' ✗' : '';
+    return `<div class="ln"><span>${label}</span><b class="${cls}">${esc(val||'—')}${mark}</b></div>`;
+  };
+  $('#auditRows').innerHTML = [
+    row('本屏锁定', S.locked, null),
+    row('左侧当前选中', rid, rid ? rid === S.locked : false),
+    row('回读任务编号', rec.tn, rec.tn ? true : null),
+    row('回读当前环节', rec.stage, rec.stage ? true : null),
+    row('证据是否挂载', rec.file_token ? '已挂载 ' + rec.file_token.slice(0,10) + '…' : (rec.img ? '有图未回传' : '无'), rec.file_token ? true : null),
+    row('材料指纹', rec.material_hash, null),
+    row('判据版本', rec.rule_ver, null)
+  ].join('') + `<div style="font-size:10px;color:var(--ink3);margin-top:8px;line-height:1.5">
+    注意：本屏一律以 recordId 为键，不用任务编号。表内存在同任务号 2 条记录的实例，按任务号取数会串行。</div>`;
+  $('#maskAudit').classList.add('on');
+});
+$('#auditClose').addEventListener('click', ()=> $('#maskAudit').classList.remove('on'));
+
+/* 拦截浮层：关闭即恢复跟随。
+   不给「留在此条」—— 轮询本来就会跟上左表，留着只会让状态自相矛盾。 */
+$('#gOk').addEventListener('click', ()=>{
+  $('#maskGuard').classList.remove('on');
+  S.guard = false;
+  tick(false);
+});
+
+document.addEventListener('keydown', e=>{
+  // 批量审阅习惯：Enter / → 推进到下一条（输入框里不拦）
+  if((e.key === 'Enter' || e.key === 'ArrowRight') && !e.target.closest('textarea,input')){
+    if($('#rowDone').style.display !== 'none'){ e.preventDefault(); nextRecord(); return; }
+  }
+  if(e.key === 'Escape'){
+    $('#lb').classList.remove('on');
+    $('#maskAudit').classList.remove('on');
+    $('#maskReject').classList.remove('on');
+    if($('#maskGuard').classList.contains('on')){
+      $('#maskGuard').classList.remove('on');
+      S.guard = false;
+      tick(false);
+    }
+  }
+});
+
+/* ---- 启动 ---- */
+(async function boot(){
+  showEmpty('正在连接飞书…');
+  await loadSdk();
+
+  if(sdkFrom === '宿主注入') setHead('', '宿主注入 SDK');
+  else if(bitable) setHead('', '本地 SDK 就绪');
+  else { showEmpty('SDK 加载失败：' + sdkFrom); setHead('wn', 'SDK 不可用'); return; }
+
+  await tick(true);
+  setInterval(()=> tick(false), 1200);
+
+  // 登录用户：不阻塞首屏，拿到再显示；拿不到就保持隐藏并留「未知用户」
+  getUserSafe().then(w=>{ S.who = w; renderWho(); }).catch(()=>{ renderWho(); });
+
+  // 写回配置：拿不到就按「不写」处理，宁可不写也不要误写
+  try{
+    const wc = await apiFetch('/api/writeback').then(x=>x.json());
+    if(wc && wc.ok) S.wb = wc;
+  }catch(e){ S.wb = { enabled:false }; }
+
+  // 辅通道：事件到了立刻刷，不必等轮询
+  if(bitable && bitable.base && bitable.base.onSelectionChange){
+    try{ bitable.base.onSelectionChange(()=> tick(false)); }catch(e){}
+  }
+  // iframe 重新可见时立即校准
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tick(false); });
+  window.addEventListener('focus', ()=> tick(false));
+
+  /* 诊断出口：控制台可查状态、手动触发一次取选中 */
+  window.__qc = {
+    S, tick, renderWho,
+    sel: () => getSelectionSafe(),
+    wb: (action, text) => writeBack(S.rec, action, text || '自测说明', 0),
+    meta: (fid) => getTableSafe().then(t => fieldMetaSafe(t, fid)),
+    editable: () => {
+      // isEditable 是 base 级方法，不是 table 级
+      if(!bitable || !bitable.base) return Promise.reject(new Error('SDK 未就绪'));
+      return (bitable.base.isEditable ? bitable.base.isEditable() : Promise.resolve(true));
+    },
+    setCell: (fid, rid, val) => getTableSafe().then(t => t.setCellValue(fid, rid, val)),
+    ver: () => ({sdkFrom, locked: S.locked, blocked: S.blocked, guard: S.guard})
+  };
+})();
+</script>
+</body>
+</html>

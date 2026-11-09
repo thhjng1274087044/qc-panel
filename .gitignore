@@ -1,0 +1,42 @@
+# ── 隧道二进制：用时从官网下载，不进库（cloudflared.exe 53MB）────────────
+cloudflared.exe
+ngrok.exe
+cloudflared
+
+# ── 密钥：口令只放本地，绝不进库 ────────────────────────────────────────
+.env.local
+.env
+*.key
+*.pem
+
+# ── 数据：真实业务数据绝不入库，仓库里只有 *.example.json ──────────────
+data/records.json
+data/people.json
+data/people.local.json
+data/qc.db
+data/qc.db-journal
+data/*.db
+data/*.db-journal
+data/records.json.bak
+data/thumb/
+
+# 证据图由 build_data.py 从源目录重建，体积大，不入库
+img/
+
+# ── 日志与临时 ─────────────────────────────────────────────────────────
+*.log
+*.bak
+*.tmp
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── 截图：界面截图含真实任务编号，不入库 ────────────────────────────────
+shot_*.png
+
+# ── 编辑器 ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

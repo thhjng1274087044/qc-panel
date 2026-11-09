@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>假飞书宿主 · 本地验证</title>
+<style>
+:root{
+  --blue:#1c5294; --blueL:#e8f0fb; --ink:#1f2329; --ink2:#5a6472; --ink3:#8f98a4;
+  --line:#e5e7eb; --line2:#d0d5dc; --bg2:#f7f8fa; --green:#2e7d46; --red:#c0392b;
+  --amber:#b8860b; --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:#eef0f3;display:flex;flex-direction:column;overflow:hidden}
+.bar{flex:0 0 auto;height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;background:#fff;border-bottom:1px solid var(--line)}
+.bar .lg{width:22px;height:22px;border-radius:5px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.bar h1{font-size:14px;font-weight:600;margin:0}
+.bar .tag{font-size:11px;padding:2px 7px;border-radius:4px;background:#fff4e5;color:#a86800;border:1px solid #ffe0b2}
+.bar .sp{flex:1}
+.bar button{font:inherit;font-size:12px;padding:5px 10px;border:1px solid var(--line2);background:#fff;border-radius:5px;cursor:pointer;color:var(--ink2)}
+.bar button:hover{background:var(--bg2)}
+.bar button.on{background:var(--blueL);border-color:#b9d0ee;color:var(--blue)}
+
+.main{flex:1;display:flex;min-height:0}
+/* 左：仿飞书数据表 */
+.sheet{flex:1;min-width:340px;display:flex;flex-direction:column;background:#fff;border-right:1px solid var(--line2)}
+.sh-hd{flex:0 0 auto;padding:10px 14px 0;border-bottom:1px solid var(--line)}
+.sh-hd .t{font-size:14px;font-weight:600}
+.sh-hd .s{font-size:11.5px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs{display:flex;gap:2px;margin-top:8px}
+.tabs .tb{padding:5px 11px;font-size:12.5px;color:var(--ink2);border-radius:5px 5px 0 0}
+.tabs .tb.on{background:var(--blueL);color:var(--blue);font-weight:500}
+.tblwrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{position:sticky;top:0;z-index:2;background:var(--bg2);text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:7px 10px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);white-space:nowrap}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#fafbfc}
+tbody tr.sel td{background:#e8f0fb}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+td.tn{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+td.rid{font-family:var(--mono);font-size:10.5px;color:var(--ink3);white-space:nowrap}
+td.nm{max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:1px 7px;border-radius:10px;white-space:nowrap}
+.bg i{width:5px;height:5px;border-radius:50%;display:block}
+.bg.g{background:#eaf7ee;color:var(--green)} .bg.g i{background:var(--green)}
+.bg.r{background:#fdeeed;color:var(--red)} .bg.r i{background:var(--red)}
+.bg.n{background:#f0f2f5;color:var(--ink2)} .bg.n i{background:var(--ink3)}
+.addrow td{color:var(--ink3);cursor:default;font-size:12px}
+
+/* 右：插件侧栏 */
+.side{width:402px;flex:0 0 auto;display:flex;flex-direction:column;background:#fff;position:relative}
+.side-hd{flex:0 0 auto;height:34px;display:flex;align-items:center;gap:7px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--bg2);font-size:12px;color:var(--ink2)}
+.side-hd b{font-weight:600;color:var(--ink)}
+.side-hd .x{margin-left:auto;color:var(--ink3)}
+.side iframe{flex:1;width:100%;border:0;min-height:0;background:#fff}
+
+/* 调试抽屉 */
+.dbg{width:0;flex:0 0 auto;overflow:hidden;background:#11161d;color:#c9d3dd;display:flex;flex-direction:column;transition:width .16s}
+.dbg.on{width:330px}
+.dbg .dh{flex:0 0 auto;padding:8px 10px;font-size:11px;color:#7f8b99;border-bottom:1px solid #232c36;display:flex;align-items:center;gap:8px}
+.dbg .dh b{color:#9fb0c2}
+.dbg .dl{flex:1;overflow:auto;padding:6px 8px;font:11px/1.65 var(--mono)}
+.dbg .it{padding:3px 5px;border-radius:3px;margin-bottom:2px;word-break:break-all}
+.dbg .it.ok{color:#6ee7a8}
+.dbg .it.out{color:#8fb8f0}
+.dbg .it.warn{color:#f0c674}
+.dbg .it.err{color:#f08a8a}
+.dbg .it .k{color:#7f8b99}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="lg">测</div>
+  <h1>测绘质检台账</h1>
+  <span class="tag">本地假宿主 · 仅用于验证链路</span>
+  <span class="sp"></span>
+  <button id="btnDrift">演示：左表切走</button>
+  <button id="btnDbg">协议日志</button>
+</div>
+
+<div class="main">
+  <div class="sheet">
+    <div class="sh-hd">
+      <div class="t">数据表 · 部门审核</div>
+      <div class="s">点任意一行 → 右侧插件应立刻跟着换；右侧顶部绑定条会显示它锁定的 recordId</div>
+      <div class="tabs"><div class="tb on">数据表</div><div class="tb">仪表盘</div><div class="tb">表单</div></div>
+    </div>
+    <div class="tblwrap">
+      <table id="grid">
+        <thead><tr>
+          <th style="width:34px"></th>
+          <th style="width:34px">#</th>
+          <th style="width:158px">任务编号</th>
+          <th>项目 / 子项</th>
+          <th style="width:92px">质检结论</th>
+          <th style="width:118px">recordId</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="side-hd"><b>质检</b><span>· 多维表格扩展</span><span class="x">✕</span></div>
+    <iframe id="plug" src="about:blank" allow="clipboard-write"></iframe>
+  </div>
+
+  <div class="dbg" id="dbg">
+    <div class="dh"><b>协议日志</b><span id="dbgCnt">0</span><span class="sp" style="flex:1"></span><span>page ⇄ host</span></div>
+    <div class="dl" id="dl"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+ * 假飞书宿主
+ *
+ * 只做一件事：让嵌进来的插件页以为自己真的在飞书里。
+ * 协议依据 @lark-base-open/js-sdk@1.0.2 的 chunk-M2SGL6KA.mjs：
+ *   收 {type:"handshake", payload:{proactive:true}}
+ *   回 {id:<同一个>, type:"handshake", payload:{prefixId}}
+ *   收 {type:"invoke", id, payload:{key, params, prefixId}}
+ *   回 {type:"callback", id:<同一个>, payload:{res}}
+ * 注意：必须回同一个 id，SDK 用 id 索引 pending Promise。
+ * ========================================================================== */
+
+/* 占位值：只在本文件的假宿主里用，真宿主由飞书注入，改这里不影响线上 */
+const BASE_ID  = 'appDEMO0000000000000';
+const TABLE_ID = 'tblDEMO0000000000';
+const VIEW_ID  = 'vewDEMO000000000';
+
+let rows = [];            // /api/records
+
+/* 假宿主的字段写权限：模拟登录人在该表可写的字段集合。
+ * 想验证「只读降级」时，把某个字段从这里去掉即可。 */
+const WRITABLE_SET = new Set(['fldtwiy2VU', 'flduuylUz8', 'fld01QMpX1', 'fldMTrdVhY']);
+
+/* 假宿主的「当前登录人」。真宿主由飞书填，这里用示例 open_id，
+ * 写入记录、顶栏姓名、回执都用它，方便核对「写的人就是他」。 */
+const MOCK_USER_ID = 'ou_00000000000000000000000000000001';
+let sel = null;           // 当前选中 recordId
+let fieldId = 'fldtwiy2VU';
+
+const dl = document.getElementById('dl');
+let logs = 0;
+function log(kind, txt){
+  logs++;
+  document.getElementById('dbgCnt').textContent = logs;
+  const d = document.createElement('div');
+  d.className = 'it ' + kind;
+  d.innerHTML = txt;
+  dl.appendChild(d);
+  if(dl.scrollHeight > dl.clientHeight) dl.scrollTop = dl.scrollHeight;
+}
+
+/* ---- 左表 ---- */
+async function loadRows(){
+  const _k = new URLSearchParams(location.search).get('k') || '';
+  const r = await fetch('/api/records' + (_k ? '?k=' + encodeURIComponent(_k) : '')).then(x=>x.json());
+  rows = r.items || [];
+  // 面板也要带同一个口令，否则会被 401
+  document.getElementById('plug').src = '/panel' + (_k ? '?k=' + encodeURIComponent(_k) : '');
+  const tb = document.querySelector('#grid tbody');
+  tb.innerHTML = rows.map((r,i)=>{
+    const cls = r.tone==='red'?'r':r.tone==='gray'?'n':'g';
+    return `<tr data-rid="${r.record_id}">
+      <td><input type="checkbox" tabindex="-1"></td>
+      <td style="color:var(--ink3);font-size:11px">${i+1}</td>
+      <td class="tn">${r.tn}</td>
+      <td class="nm">${r.name || r.sub || '-'}</td>
+      <td><span class="bg ${cls}"><i></i>${r.badge}</span></td>
+      <td class="rid">${r.record_id}</td>
+    </tr>`;
+  }).join('') + `<tr class="addrow"><td></td><td></td><td colspan="4">＋ 添加记录</td></tr>`;
+  tb.querySelectorAll('tr[data-rid]').forEach(tr=>{
+    tr.addEventListener('click', ()=> pick(tr.dataset.rid));
+  });
+  if(rows.length) pick(rows[0].record_id);
+}
+
+function pick(rid){
+  sel = rid;
+  document.querySelectorAll('#grid tbody tr').forEach(tr=>{
+    tr.classList.toggle('sel', tr.dataset.rid === rid);
+  });
+  const r = rows.find(x=>x.record_id===rid);
+  log('out', `<span class="k">选中变化</span> ${r ? r.tn : ''} · ${rid}`);
+  pushSelectionEvent();
+}
+
+/* 事件通道（可选）：面板以轮询为主，这条能通更好 */
+function pushSelectionEvent(){
+  const win = document.getElementById('plug').contentWindow;
+  if(!win || !sel) return;
+  win.postMessage({
+    type:'event',
+    payload:{ eventName:'BaseEvent_SelectionChange', params:{ recordId: sel, tableId: TABLE_ID, viewId: VIEW_ID } }
+  }, '*');
+}
+
+/* ---- API 应答表：按 api key 后缀路由 ----
+ * 注意 params 是「批量请求项」的数组，每项形如 {c:<context>, p:<真实参数>, t:<时间戳>}，
+ * 所以取业务参数要读 it.p。单条方法的 p 就是调用方传的参数数组。
+ * 返回值由调用处统一包成数组 —— SDK 的 runImmediate 会对数组 forEach 分发。
+ */
+function answer(key, args){
+  const params = args;
+  const short = key.replace(/^bitable\./, '');
+  const r = rows.find(x=>x.record_id===sel);
+
+  switch(short){
+    case 'WidgetBase_getSelection':
+      return { baseId: BASE_ID, tableId: TABLE_ID, viewId: VIEW_ID,
+               fieldId: fieldId, recordId: sel || null };
+
+    case 'WidgetBase_getBasePermission':
+    case 'WidgetBase_isEditable':
+      return true;
+
+    case 'WidgetBase_getTableMetaList':
+    case 'WidgetBase_getTableList':
+      return [{ id: TABLE_ID, name: '测绘质检台账' }];
+
+    /* getActiveTable / getTable / getTableById 都落在这一条：
+     * 真宿主返回 ITable 句柄，假宿主只交出 tableId，SDK 会自己包出 table 对象 */
+    case 'WidgetBase_getTableById':
+    case 'WidgetBase_getActiveTable':
+    case 'WidgetBase_getTable':
+      return TABLE_ID;
+
+    case 'WidgetBase_getTableIdByName':
+      return TABLE_ID;
+
+    case 'WidgetBase_isTableExist':
+      return true;
+
+    case 'WidgetTable_getName':
+      return '测绘质检台账';
+
+    case 'WidgetTable_getRecordIdList':
+    case 'WidgetView_getVisibleRecordIdList':
+      return rows.map(x=>x.record_id);
+
+    case 'WidgetTable_getFieldMetaList':
+    case 'WidgetView_getFieldMetaList':
+      /* 还原真实表里我们关心的几个字段，含那个选项源不可访问的「动态单选」。
+       * 客户端以登录人身份读，能看到全部选项 —— 这正是「坏字段」在服务端坏、
+       * 在面板里不坏的原因。 */
+      return [
+        { id:'fldtwiy2VU', name:'审核意见说明', type:1 },
+        { id:'flduuylUz8', name:'ai审核意见（用户）', type:3,
+          property:{ options:[
+            { id:'opt-p', name:'通过',  color:0 },
+            { id:'opt-r', name:'不合格', color:1 },
+          ]}},
+        { id:'fld01QMpX1', name:'质量问题说明', type:1 },
+        { id:'fldMTrdVhY', name:'审核意见', type:3,
+          property:{ options:[
+            { id:'opt-a', name:'通过',   color:0 },
+            { id:'opt-b', name:'不合格', color:1 },
+          ]}},
+        { id:'fldg7kSQto', name:'质量问题说明附件', type:17 },
+      ];
+
+    /* 写单元格：模拟「以当前登录人身份写」。
+     * 真宿主按登录人的字段权限判定，越权会 reject；假宿主同样按 WRITABLE 判一次，
+     * 这样「只读时降级」这条分支在本地也能被测到。 */
+    case 'WidgetTable_setCellValue': {
+      const [fid, rid, val] = params || [];
+      const target = rows.find(x=>x.record_id===rid);
+      if(!target) return false;
+      if(!WRITABLE_SET.has(fid)){
+        log('warn', `<span class="k">越权拒绝</span> ${fid}（当前登录人无该字段写权限）`);
+        return false;
+      }
+      (window.__mockWrites = window.__mockWrites || []).push({
+        field_id: fid, record_id: rid, value: val,
+        by: MOCK_USER_ID, at: Date.now()
+      });
+      if(fid==='flduuylUz8') target.ai = (val && val[0] && val[0].text) || target.ai;
+      if(fid==='fld01QMpX1') target.human_note = (val && val[0] && val[0].text) || '';
+      log('ok', `<span class="k">写入</span> ${fid} ← ${JSON.stringify(val).slice(0,60)}`);
+      return true;
+    }
+
+    /* 取单元格：面板若走 getCellString / getCellValue 也能应答 */
+    case 'WidgetTable_getCellValue':
+    case 'WidgetField_getCellString':
+    case 'WidgetField_getCellValue': {
+      const fid = (params||[])[0];
+      if(!r) return null;
+      if(fid==='flduuylUz8') return [{ id:'opt-pass', text: r.ai || '通过' }];
+      if(fid==='fldtwiy2VU') return [{ type:'text', text: r.reason || '' }];
+      if(fid==='fldg7kSQto') return [];
+      return null;
+    }
+
+    case 'WidgetField_getName': {
+      const fid = (params||[])[0];
+      return { fldtwiy2VU:'审核意见说明', flduuylUz8:'ai审核意见', fldg7kSQto:'质量问题说明' }[fid] || '';
+    }
+
+    case 'WidgetField_getType':
+      return (params||[])[0]==='fldg7kSQto' ? 17 : 1;
+
+    case 'WidgetBase_registerBaseEvent':
+    case 'WidgetBase_unregisterBaseEvent':
+    case 'WidgetTable_registerTableEvent':
+      log('ok', `<span class="k">订阅</span> ${JSON.stringify(params||[])}`);
+      return null;
+
+    case 'WidgetView_getType':
+      return 1;
+
+    /* 登录用户：真宿主由飞书填充，这里是假宿主的固定值，对应 people.example.json 第一人 */
+    case 'Bridge_getUserId':
+      return MOCK_USER_ID;
+    case 'Bridge_getBaseUserId':
+      return 'bumock_5521aa83';
+    case 'Bridge_getTenantKey':
+      return 'tenant_mock_0001';
+    case 'Bridge_getInstanceId':
+      return 'inst_mock_0001';
+    case 'Bridge_getEnv':
+      return { product:'feishu' };
+
+    default:
+      log('warn', `<span class="k">未实现</span> ${short}`);
+      return null;
+  }
+}
+
+/* ---- 协议主循环 ---- */
+window.addEventListener('message', (e)=>{
+  const d = e.data;
+  if(!d || typeof d !== 'object' || !d.type) return;
+
+  const src = document.getElementById('plug').contentWindow;
+  const reply = (msg)=> src.postMessage(msg, '*');
+
+  if(d.type === 'handshake'){
+    const proactive = d.payload && d.payload.proactive;
+    if(proactive){
+      log('out', `<span class="k">handshake ←</span> proactive`);
+      reply({ id: d.id, type:'handshake', payload:{ prefixId:'mock' } });
+      log('ok',  `<span class="k">handshake →</span> prefixId=mock`);
+    }else{
+      log('ok',  `<span class="k">handshake ✓</span> 客户端确认`);
+    }
+    return;
+  }
+
+  if(d.type === 'invoke'){
+    const key = (d.payload && d.payload.key) || '';
+    const batch = (d.payload && d.payload.params) || [];
+    // 批量：SDK 一次可能带多条，必须逐条回、顺序对应
+    const items = Array.isArray(batch) ? batch : [batch];
+    const out = [];
+    let failed = null;
+    for(const it of items){
+      try{
+        // it.p 才是真实参数；兼容老格式（直接就是参数数组）
+        const args = (it && Array.isArray(it.p)) ? it.p : (Array.isArray(it) ? it : []);
+        out.push(answer(key, args));
+      }catch(ex){
+        failed = String(ex);
+        out.push({ e:'bte', msg: failed });
+      }
+    }
+    if(!/register|unregister|Private_/.test(key)){
+      log('out', `<span class="k">invoke ←</span> ${key.replace('bitable.','')} <span class="k">×${items.length}</span>`);
+    }
+    if(failed) log('err', `<span class="k">error</span> ${failed}`);
+    reply({ type:'callback', id:d.id, payload:{ res: out } });
+    return;
+  }
+
+  log('warn', `<span class="k">其他</span> ${d.type}`);
+});
+
+/* ---- 演示漂移：左表切走，右侧不通知（模拟飞书事件丢失） ---- */
+document.getElementById('btnDrift').addEventListener('click', ()=>{
+  const i = rows.findIndex(r=>r.record_id===sel);
+  const nxt = rows[(i+1) % rows.length];
+  if(!nxt) return;
+  const keep = sel;
+  // 只改左边高亮与 sel 指针，不推事件 —— 面板会停在旧记录上
+  sel = nxt.record_id;
+  document.querySelectorAll('#grid tbody tr').forEach(tr=>{
+    tr.classList.toggle('sel', tr.dataset.rid === nxt.record_id);
+  });
+  // 面板轮询 getSelection 时才会自己发现
+  log('warn', `<span class="k">漂移</span> 左表→${nxt.tn}（未推事件），面板仍锁 ${keep}`);
+});
+
+document.getElementById('btnDbg').addEventListener('click', (e)=>{
+  document.getElementById('dbg').classList.toggle('on');
+  e.currentTarget.classList.toggle('on');
+});
+
+loadRows().catch(e=>log('err','加载样本失败 '+e));
+</script>
+</body>
+</html>
