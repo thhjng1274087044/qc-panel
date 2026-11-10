@@ -1,6 +1,6 @@
 """验证「当前登录人」这条线：SDK 取值 → 查姓名 → 顶栏显示 → 落库留痕。
 
-不依赖真飞书：假宿主按 Bridge_getUserId 返回固定 open_id（张示例），
+不依赖真飞书：假宿主按 Bridge_getUserId 返回固定 open_id（邵宇航），
 该 id 在 data/people.json 里，能验证「id → 姓名」这一跳。
 """
 
@@ -13,7 +13,7 @@ import sqlite3
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get("QC_BASE", "http://127.0.0.1:8776")
-TOKEN = os.environ.get("QC_TOKEN", "")
+TOKEN = os.environ.get("QC_TOKEN", "qc-74f3a91c2b6e")
 DB = "data/qc.db"
 
 results: list[tuple[bool, str, str]] = []
@@ -27,7 +27,7 @@ def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         pg = browser.new_page(viewport={"width": 1440, "height": 980})
-        pg.goto(f"{BASE}/?k={TOKEN}", wait_until="domcontentloaded")
+        pg.goto(f"{BASE}/host?k={TOKEN}", wait_until="domcontentloaded")
         pg.wait_for_timeout(4500)
 
         panel = None
@@ -50,8 +50,8 @@ def main() -> None:
         }""")
         print("顶栏 chip:", json.dumps(who, ensure_ascii=False))
         ck(bool(who and who["shown"]), "顶栏显示登录人", (who or {}).get("text", ""))
-        ck(bool(who and who["text"] == "张示例"), "ID 已换成姓名", (who or {}).get("text", ""))
-        ck(bool(who and "ou_00000000000000000000000000000001" in who["title"]), "悬停可见完整 id")
+        ck(bool(who and who["text"] == "邵宇航"), "ID 已换成姓名", (who or {}).get("text", ""))
+        ck(bool(who and "ou_39e6d9ad114dc7a6a86f0a467bf217a3" in who["title"]), "悬停可见完整 id")
         ck(bool(who and who["w"] <= 90), "chip 宽度受限不挤占顶栏", f"{who['w']}px")
 
         # 2. 顶栏不横向溢出（400px 场景）
@@ -90,15 +90,15 @@ def main() -> None:
         ck(bool(row), "动作已落库")
         if row:
             actor, note, payload = row
-            ck(actor == "张示例", "actor 存为姓名", actor)
-            ck("ou_00000000000000000000000000000001" in (payload or ""), "payload 保留完整 actor_id")
+            ck(actor == "邵宇航", "actor 存为姓名", actor)
+            ck("ou_39e6d9ad114dc7a6a86f0a467bf217a3" in (payload or ""), "payload 保留完整 actor_id")
             ck(note == "登录人留痕自测", "附言内容正确", note)
 
         # 5. 留痕页应显示这个 actor
         panel.click("#tabs button[data-t='log']")
         pg.wait_for_timeout(600)
         log_txt = panel.inner_text("#logList")
-        ck("张示例" in log_txt, "留痕列表显示姓名", log_txt.splitlines()[-1][:40] if log_txt else "")
+        ck("邵宇航" in log_txt, "留痕列表显示姓名", log_txt.splitlines()[-1][:40] if log_txt else "")
 
         browser.close()
 

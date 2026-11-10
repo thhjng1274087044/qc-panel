@@ -9,10 +9,7 @@ cloudflared
 *.key
 *.pem
 
-# ── 数据：真实业务数据绝不入库，仓库里只有 *.example.json ──────────────
-data/records.json
-data/people.json
-data/people.local.json
+# ── 数据：样本入库，运行时产物不入库 ────────────────────────────────────
 data/qc.db
 data/qc.db-journal
 data/*.db
@@ -20,7 +17,7 @@ data/*.db-journal
 data/records.json.bak
 data/thumb/
 
-# 证据图由 build_data.py 从源目录重建，体积大，不入库
+# 证据图由 build_data.py 从源目录重建，36MB 不入库
 img/
 
 # ── 日志与临时 ─────────────────────────────────────────────────────────
@@ -32,8 +29,11 @@ __pycache__/
 .venv/
 venv/
 
-# ── 截图：界面截图含真实任务编号，不入库 ────────────────────────────────
+# ── 截图：只留文档引用的三张，其余不进库 ────────────────────────────────
 shot_*.png
+!shot_final.png
+!shot_ui_reject.png
+!shot_ui_note.png
 
 # ── 编辑器 ─────────────────────────────────────────────────────────────
 .vscode/

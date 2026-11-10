@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文件压缩</title>
+<style>
+:root{
+  --blue:#1c5294;--blueL:#e8f0fb;--ink:#1f2329;--ink2:#5a6472;--ink3:#8f98a4;
+  --line:#e8eaed;--line2:#d8dce1;--bg:#f5f7fa;--bg2:#fafbfc;
+  --green:#2e7d46;--greenL:#eaf7ee;--red:#c0392b;--redL:#fdeeed;--amber:#b8860b;--amberL:#fdf6e3;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+.hd{height:48px;display:flex;align-items:center;gap:10px;padding:0 20px;background:#fff;
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.hd .ic{width:20px;height:20px;border-radius:5px;background:var(--blue);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.hd .ttl{font-weight:600;font-size:14px}
+.hd .sp{flex:1}
+.hd a{color:var(--blue);text-decoration:none;font-size:12.5px}
+.hd a:hover{text-decoration:underline}
+.hd .who{font-size:12px;color:var(--ink3)}
+main{max-width:1000px;margin:0 auto;padding:18px 20px 60px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.panel .ph{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+/* 标题不许折：420px 侧栏里「① 压到多大」曾被挤成「①压到多 / 大」 */
+.panel .ph b{font-size:13.5px;font-weight:600;white-space:nowrap;flex:0 0 auto}
+.panel .ph .sp{flex:0 1 8px}
+.panel .ph .hint{text-align:right;flex:1 1 auto;min-width:0}
+.panel .pb{padding:14px 16px}
+.hint{font-size:11.5px;color:var(--ink3);line-height:1.7}
+.chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line2);border-radius:16px;padding:4px 14px;font-size:12.5px;
+  color:var(--ink2);cursor:pointer;user-select:none;background:#fff;transition:.12s}
+.chip:hover{border-color:#b9cdf0;color:var(--blue)}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.mb{width:112px;padding:5px 9px;border:1px solid var(--line2);border-radius:6px;font:inherit;font-size:12.5px}
+.drop{border:1.5px dashed var(--line2);border-radius:9px;padding:26px 18px;text-align:center;color:var(--ink2);
+  background:var(--bg2);cursor:pointer;transition:.15s}
+.drop:hover,.drop.on{border-color:var(--blue);background:var(--blueL)}
+.drop .big{font-size:13.5px;margin-bottom:4px}
+.drop .small{font-size:11.5px;color:var(--ink3)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.btn{padding:6px 16px;border-radius:6px;border:1px solid var(--line2);background:#fff;
+  font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.btn:hover{border-color:#b9cdf0;color:var(--blue)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.pri:hover{background:#17457e;color:#fff}
+.btn:disabled{opacity:.45;cursor:default;color:var(--ink3);border-color:var(--line2);background:#fff}
+.btn.pri:disabled{background:#9fb3cd;border-color:#9fb3cd;color:#fff}
+.fileitem{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.fileitem:last-child{border-bottom:none}
+.fileitem>div:first-child{flex:1;min-width:0}
+.fname{font-size:13px;word-break:break-all;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.fmeta{font-size:11.5px;color:var(--ink3);margin-top:2px}
+.fright{flex:0 0 auto;text-align:right;display:flex;align-items:center;gap:10px}
+.dl{color:var(--blue);font-size:12.5px;text-decoration:none;white-space:nowrap}
+.dl:hover{text-decoration:underline}
+.bar{height:4px;background:#eef0f3;border-radius:3px;margin-top:7px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue);transition:width .2s}
+.tag{font-size:10.5px;padding:1px 7px;border-radius:9px;background:var(--blueL);color:var(--blue);font-weight:600}
+.tag.ok{background:var(--greenL);color:var(--green)}
+.tag.bad{background:var(--redL);color:var(--red)}
+.tag.warn{background:var(--amberL);color:var(--amber)}
+.delta{font-weight:600;color:var(--green)}
+.delta.neg{color:var(--red)}
+.empty{font-size:12.5px;color:var(--ink3);padding:14px 2px;text-align:center}
+.err{font-size:12px;color:var(--red);margin-top:8px;min-height:0}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="ic">压</div><div class="ttl">文件压缩</div>
+  <div class="sp"></div>
+  <div class="who" id="who"></div>
+  <a data-home>← 返回首页</a>
+  <a href="/logout">退出</a>
+</div>
+<main>
+  <div class="panel">
+    <div class="ph"><b>① 压到多大</b><div class="sp"></div>
+      <span class="hint">默认 4 MB，留一点余量；压不到会直接说明，不会骗你</span></div>
+    <div class="pb">
+      <div class="chips" id="chips">
+        <span class="chip on" data-mb="4">4 MB</span>
+        <span class="chip" data-mb="3">3 MB</span>
+        <span class="chip" data-mb="2">2 MB</span>
+        <span class="chip" data-mb="1">1 MB</span>
+        <input class="mb" id="customMb" type="number" min="0.2" step="0.1" placeholder="自定义 MB">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><b>② 选文件</b><div class="sp"></div>
+      <span class="hint">pdf / jpg / png，可多选或直接拖进来</span></div>
+    <div class="pb">
+      <div class="drop" id="drop">
+        <div class="big">把文件拖到这里，或点这里选</div>
+        <div class="small">PDF 按页重采样；图片按尺寸重压。<b>输出还是原来的格式</b>（pdf 出 pdf、jpg 出 jpg）</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" hidden>
+      <div class="err" id="err"></div>
+      <div class="hint" style="margin-top:10px">
+        文件<b>不上传</b>：压缩在你自己浏览器里完成，服务器只发这个页面。关掉页面就没了，记得先下载。
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><b>③ 结果</b><div class="sp"></div><span class="hint" id="total"></span></div>
+    <div class="pb">
+      <div id="list"><div class="empty">还没有文件</div></div>
+      <div class="row">
+        <button class="btn pri" id="btnStart" disabled>开始压缩</button>
+        <button class="btn" id="btnZip" disabled>打包 zip 下载</button>
+        <button class="btn" id="btnClear" disabled>清空</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/static/shrink/pdf.min.js"></script>
+<script src="/static/shrink/pdf-lib.min.js"></script>
+<script src="/static/shrink/jszip.min.js"></script>
+<script src="/static/auth.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+
+  // PDF 阶梯：从最清晰往下走。(目标宽度px, JPEG质量)
+  var PLANS = [
+    { w: 1653, q: 0.62 }, { w: 1653, q: 0.52 },
+    { w: 1400, q: 0.50 }, { w: 1240, q: 0.46 },
+    { w: 1100, q: 0.42 }, { w: 1000, q: 0.38 },
+    { w: 900,  q: 0.34 }, { w: 800,  q: 0.30 }
+  ];
+  // 图片阶梯：先降质量，再降尺寸。PNG 的质量参数无效，只靠尺寸。
+  var IMG_PLANS = [
+    { s: 1.00, q: 0.86 }, { s: 1.00, q: 0.72 }, { s: 1.00, q: 0.60 },
+    { s: 0.85, q: 0.60 }, { s: 0.72, q: 0.55 }, { s: 0.58, q: 0.50 },
+    { s: 0.45, q: 0.45 }
+  ];
+
+  var MB = 1048576;
+  var items = [];
+  var uid = 0;
+  var busy = false;
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/shrink/pdf.worker.min.js";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var listEl = $("list"), totalEl = $("total"), errEl = $("err");
+  var btnStart = $("btnStart"), btnZip = $("btnZip"), btnClear = $("btnClear");
+  var dropEl = $("drop"), inputEl = $("fileInput"), customMb = $("customMb");
+
+  fetch("/api/me").then(function (r) { return r.json(); }).then(function (r) {
+    if (r && r.ok) $("who").textContent = r.name + (r.master ? "（管理通道）" : "");
+  }).catch(function () {});
+
+  function fmt(b) {
+    if (b >= MB) return (b / MB).toFixed(2) + " MB";
+    if (b >= 1024) return (b / 1024).toFixed(0) + " KB";
+    return b + " B";
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function kindOf(name) {
+    if (/\.pdf$/i.test(name)) return "pdf";
+    if (/\.(jpe?g|png)$/i.test(name)) return "img";
+    return "";
+  }
+  function targetBytes() {
+    var v = parseFloat(customMb.value);
+    if (!isNaN(v) && v > 0) return v * MB;
+    var on = document.querySelector(".chip.on");
+    return (on ? parseFloat(on.dataset.mb) : 4) * MB;
+  }
+
+  document.querySelectorAll(".chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      document.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); });
+      c.classList.add("on");
+      customMb.value = "";
+    });
+  });
+  customMb.addEventListener("input", function () {
+    if (customMb.value) {
+      document.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); });
+    }
+  });
+
+  dropEl.addEventListener("click", function () { inputEl.click(); });
+  ["dragenter", "dragover"].forEach(function (e) {
+    dropEl.addEventListener(e, function (ev) { ev.preventDefault(); dropEl.classList.add("on"); });
+  });
+  ["dragleave", "drop"].forEach(function (e) {
+    dropEl.addEventListener(e, function (ev) { ev.preventDefault(); dropEl.classList.remove("on"); });
+  });
+  dropEl.addEventListener("drop", function (ev) {
+    if (ev.dataTransfer && ev.dataTransfer.files) addFiles(ev.dataTransfer.files);
+  });
+  inputEl.addEventListener("change", function () {
+    addFiles(inputEl.files);
+    inputEl.value = "";
+  });
+
+  function addFiles(fileList) {
+    var added = 0, skipped = [];
+    for (var i = 0; i < fileList.length; i++) {
+      var f = fileList[i];
+      var k = kindOf(f.name);
+      if (!k) { skipped.push(f.name); continue; }
+      items.push({
+        id: ++uid, file: f, name: f.name, kind: k, before: f.size,
+        status: "wait", outSize: 0, blob: null, url: "", outName: "", err: "", hasText: null, pct: 0
+      });
+      added++;
+    }
+    // 不支持的类型要说清是哪种，别让人以为文件丢了
+    errEl.textContent = skipped.length
+      ? "跳过 " + skipped.length + " 个不支持的文件（只认 pdf / jpg / png）：" + skipped.slice(0, 3).join("、")
+      : "";
+    if (!added && !skipped.length) errEl.textContent = "没有选中文件";
+    render();
+  }
+
+  function render() {
+    if (!items.length) {
+      listEl.innerHTML = '<div class="empty">还没有文件</div>';
+      btnStart.disabled = true; btnZip.disabled = true; btnClear.disabled = true;
+      totalEl.textContent = "";
+      return;
+    }
+    var html = "";
+    items.forEach(function (it) {
+      var tag = "";
+      if (it.hasText === true) tag += '<span class="tag warn">含文字层，压完会变成图片</span>';
+      if (it.hasText === false) tag += '<span class="tag">扫描件</span>';
+      if (it.kind === "img") tag += '<span class="tag">图片</span>';
+      if (it.over) tag += '<span class="tag warn">已压到最小档，仍超目标</span>';
+
+      var right = "";
+      if (it.status === "wait") {
+        right = '<span class="fmeta">待处理</span>';
+      } else if (it.status === "run") {
+        right = '<span class="fmeta">处理中 ' + it.pct + '%</span>';
+      } else if (it.status === "done") {
+        var pct = it.before > 0 ? (1 - it.outSize / it.before) * 100 : 0;
+        var cls = it.outSize <= it.before ? "delta" : "delta neg";
+        right = (it.over ? '<span class="fmeta" style="color:#b8860b;max-width:220px">' + esc(it.err) + "</span>" : "") +
+          '<a class="dl" href="' + it.url + '" download="' + esc(it.outName) + '">下载</a>' +
+          '<span class="tag ok">' + fmt(it.outSize) + ' <span class="' + cls + '">-' + pct.toFixed(0) + '%</span></span>';
+      } else {
+        tag += '<span class="tag bad">失败</span>';
+        right = '<span class="fmeta" style="color:#a32d2d;max-width:260px">' + esc(it.err) + "</span>";
+      }
+
+      html += '<div class="fileitem"><div>' +
+        '<div class="fname">' + esc(it.name) + tag + "</div>" +
+        '<div class="fmeta">原 ' + fmt(it.before) + "</div>" +
+        (it.status === "run" ? '<div class="bar"><i style="width:' + it.pct + '%"></i></div>' : "") +
+        '</div><div class="fright">' + right + "</div></div>";
+    });
+    listEl.innerHTML = html;
+
+    var done = items.filter(function (x) { return x.status === "done"; });
+    btnZip.disabled = busy || done.length < 1;
+    btnClear.disabled = busy;
+    btnStart.disabled = busy || items.every(function (x) { return x.status === "done"; });
+    if (done.length) {
+      var b = done.reduce(function (s, x) { return s + x.before; }, 0);
+      var a = done.reduce(function (s, x) { return s + x.outSize; }, 0);
+      totalEl.textContent = "已完成 " + done.length + " 份：" + fmt(b) + " → " + fmt(a) +
+        "（减少 " + ((1 - a / b) * 100).toFixed(0) + "%）";
+    } else {
+      totalEl.textContent = "";
+    }
+  }
+
+  function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+  function friendly(e) {
+    var s = (e && e.message) ? String(e.message) : "";
+    if (/password/i.test(s)) return "有密码保护，打不开";
+    if (/Invalid PDF|not a PDF|structure/i.test(s)) return "不是有效的 PDF";
+    if (/worker/i.test(s)) return "解析组件没加载出来，刷新页面重试";
+    if (/memory|allocation/i.test(s)) return "文件太大，浏览器内存不够";
+    return s ? s.slice(0, 44) : "处理失败";
+  }
+
+  // ---------------------------------------------------------------- PDF
+  function renderJpeg(page, plan) {
+    var v1 = page.getViewport({ scale: 1 });
+    var vp = page.getViewport({ scale: plan.w / v1.width });
+    var c = document.createElement("canvas");
+    c.width = Math.round(vp.width);
+    c.height = Math.round(vp.height);
+    var ctx = c.getContext("2d", { alpha: false });
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+      return new Promise(function (res) {
+        // 白底先铺好再 toBlob：透明区域直接压成 JPEG 会变黑
+        c.toBlob(function (blob) {
+          blob.arrayBuffer().then(function (ab) {
+            c.width = 0; c.height = 0;
+            res(new Uint8Array(ab));
+          });
+        }, "image/jpeg", plan.q);
+      });
+    });
+  }
+
+  function sampleIdx(n, k) {
+    if (n <= k) return Array.from({ length: n }, function (_, i) { return i + 1; });
+    var out = [];
+    for (var i = 0; i < k; i++) out.push(Math.max(1, Math.round(1 + i * (n - 1) / (k - 1))));
+    return Array.from(new Set(out));
+  }
+
+  async function estimate(pdf, plan, n) {
+    var idx = sampleIdx(n, 3), sum = 0;
+    for (var i = 0; i < idx.length; i++) {
+      var p = await pdf.getPage(idx[i]);
+      var buf = await renderJpeg(p, plan);
+      sum += buf.length;
+      p.cleanup();
+    }
+    return sum / idx.length * n * 1.08;
+  }
+
+  async function build(pdf, plan, onPct) {
+    var out = await PDFLib.PDFDocument.create();
+    var n = pdf.numPages;
+    for (var i = 1; i <= n; i++) {
+      var page = await pdf.getPage(i);
+      var v1 = page.getViewport({ scale: 1 });
+      var buf = await renderJpeg(page, plan);
+      var img = await out.embedJpg(buf);
+      var pg = out.addPage([v1.width, v1.height]);
+      pg.drawImage(img, { x: 0, y: 0, width: v1.width, height: v1.height });
+      page.cleanup();
+      onPct(Math.round(i / n * 100));
+      await tick();
+    }
+    var bytes = await out.save();
+    return new Blob([bytes], { type: "application/pdf" });
+  }
+
+  async function doPdf(it, target) {
+    var ab = await it.file.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+    var n = pdf.numPages;
+    it.status = "run"; it.pct = 0; render();
+
+    try {
+      var tc = await (await pdf.getPage(1)).getTextContent();
+      var chars = tc.items.reduce(function (s, x) { return s + (x.str || "").length; }, 0);
+      it.hasText = chars > 20;
+      render();
+    } catch (e) { it.hasText = false; }
+
+    var idx = 0, est = Infinity;
+    for (; idx < PLANS.length; idx++) {
+      it.pct = 1; render();
+      est = await estimate(pdf, PLANS[idx], n);
+      if (est <= target) break;
+    }
+    if (idx >= PLANS.length) idx = PLANS.length - 1;
+
+    var blob = null, tries = 0;
+    while (true) {
+      blob = await build(pdf, PLANS[idx], function (p) { it.pct = p; render(); });
+      if (blob.size <= target || idx >= PLANS.length - 1 || tries >= 3) break;
+      idx++; tries++;
+    }
+    pdf.destroy();
+    return blob;
+  }
+
+  // ---------------------------------------------------------------- 图片
+  function loadImage(file) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); res(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("图片读不出来")); };
+      img.src = url;
+    });
+  }
+
+  async function doImg(it, target) {
+    var img = await loadImage(it.file);
+    var isPng = /\.png$/i.test(it.name);
+    var mime = isPng ? "image/png" : "image/jpeg";
+    it.status = "run"; it.pct = 10; render();
+
+    var best = null;
+    for (var i = 0; i < IMG_PLANS.length; i++) {
+      var p = IMG_PLANS[i];
+      var w = Math.max(1, Math.round(img.naturalWidth * p.s));
+      var h = Math.max(1, Math.round(img.naturalHeight * p.s));
+      var c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      var ctx = c.getContext("2d", { alpha: !isPng });
+      if (!isPng) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h); }
+      ctx.drawImage(img, 0, 0, w, h);
+      var blob = await new Promise(function (r) { c.toBlob(r, mime, p.q); });
+      c.width = 0; c.height = 0;
+      it.pct = Math.round((i + 1) / IMG_PLANS.length * 100); render();
+      // PNG 压到尺寸一半就够小、再缩就糊了；best 留最后一档兜底
+      best = blob;
+      if (blob.size <= target) break;
+      await tick();
+    }
+    return best;
+  }
+
+  // ---------------------------------------------------------------- 入口
+  async function processOne(it, target) {
+    var blob;
+    if (it.kind === "pdf") {
+      blob = await doPdf(it, target);
+    } else {
+      blob = await doImg(it, target);
+    }
+    var ext = (it.name.match(/\.[^.]+$/) || [""])[0];
+    it.outSize = blob.size;
+    it.blob = blob;                      // 留引用，打包 zip 时直接用，避免 fetch(blob:)
+    it.outName = it.name.slice(0, it.name.length - ext.length) + "_压缩" + ext;
+    it.url = URL.createObjectURL(blob);
+    // 「压不小」不报失败，但必须说出来，否则人家以为工具坏了
+    if (blob.size > target) {
+      it.err = "已是最后一档，仍有 " + fmt(blob.size) + "，超目标";
+      it.over = true;
+    }
+    it.status = "done";
+    render();
+  }
+
+  btnStart.addEventListener("click", async function () {
+    if (busy) return;
+    busy = true; btnStart.disabled = true; btnZip.disabled = true;
+    var target = targetBytes();
+    btnStart.textContent = "压缩中…";
+    var queue = items.filter(function (x) { return x.status === "wait" || x.status === "error"; });
+    for (var i = 0; i < queue.length; i++) {
+      var it = queue[i];
+      try {
+        await processOne(it, target);
+      } catch (e) {
+        it.status = "error";
+        it.err = friendly(e);
+        render();
+      }
+      await tick();
+    }
+    btnStart.textContent = "开始压缩";
+    busy = false;
+    render();
+  });
+
+  btnZip.addEventListener("click", async function () {
+    var done = items.filter(function (x) { return x.status === "done"; });
+    if (!done.length) return;
+    if (done.length === 1) {           // 只有一份就别套 zip 了，多一层解压麻烦
+      var a1 = document.createElement("a");
+      a1.href = done[0].url; a1.download = done[0].outName; a1.click();
+      return;
+    }
+    var zip = new JSZip();
+    done.forEach(function (d) { if (d.blob) zip.file(d.outName, d.blob); });
+    var blob = await zip.generateAsync({ type: "blob" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "压缩结果_" + new Date().toISOString().slice(0, 10) + ".zip";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+
+  btnClear.addEventListener("click", function () {
+    if (busy) return;
+    items.forEach(function (x) { if (x.url) URL.revokeObjectURL(x.url); });
+    items = [];
+    errEl.textContent = "";
+    render();
+  });
+
+  render();
+})();
+</script>
+<script src="/static/nav.js?v=2"></script>
+</body>
+</html>

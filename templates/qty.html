@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工程量统计</title>
+<style>
+:root{
+  --blue:#1c5294;--blueL:#e8f0fb;--ink:#1f2329;--ink2:#5a6472;--ink3:#8f98a4;
+  --line:#e8eaed;--line2:#d8dce1;--bg:#f5f7fa;--bg2:#fafbfc;
+  --green:#2e7d46;--greenL:#eaf7ee;--red:#c0392b;--redL:#fdeeed;--amber:#b8860b;--amberL:#fdf6e3;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+.hd{height:48px;display:flex;align-items:center;gap:10px;padding:0 20px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.hd .ic{width:20px;height:20px;border-radius:5px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.hd .ttl{font-weight:600;font-size:14px}
+.hd .sp{flex:1}
+.hd a{color:var(--blue);text-decoration:none;font-size:12.5px}
+.hd a:hover{text-decoration:underline}
+.hd .who{font-size:12px;color:var(--ink3)}
+main{max-width:1180px;margin:0 auto;padding:18px 20px 60px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.panel .ph{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.panel .ph b{font-size:13.5px;font-weight:600}
+.panel .ph .sp{flex:1}
+.panel .pb{padding:14px 16px}
+.drop{border:1.5px dashed var(--line2);border-radius:9px;padding:18px;text-align:center;color:var(--ink2);
+  background:var(--bg2);cursor:pointer;transition:.15s}
+.drop:hover,.drop.on{border-color:var(--blue);background:var(--blueL)}
+.drop .big{font-size:13.5px;margin-bottom:4px}
+.drop .small{font-size:11.5px;color:var(--ink3)}
+.picked{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.picked .f{font-size:11.5px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;
+  display:flex;align-items:center;gap:6px;max-width:100%}
+.picked .f span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.picked .f i{cursor:pointer;color:var(--ink3);font-style:normal}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;color:var(--ink2)}
+.field input{padding:6px 9px;border:1px solid var(--line2);border-radius:6px;font:inherit;font-size:12.5px;width:96px}
+.btn{padding:8px 18px;border-radius:7px;border:1px solid var(--line2);background:#fff;font:inherit;font-size:13px;cursor:pointer}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.btn:disabled{opacity:.55;cursor:default}
+.hint{font-size:11.5px;color:var(--ink3);margin-top:8px;line-height:1.7}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));border-top:1px solid var(--line)}
+.stats .s{padding:11px 14px;border-right:1px solid var(--line);min-width:0}
+.stats .s:last-child{border-right:0}
+.stats .k{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats .v{font-size:17px;font-weight:600;font-family:var(--mono);letter-spacing:-.3px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.stats .v small{font-size:10.5px;font-weight:400;color:var(--ink3);margin-left:2px}
+.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line);background:#fff}
+.tabs button{border:0;background:transparent;padding:10px 12px;font:inherit;font-size:12.5px;color:var(--ink2);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.tblwrap{overflow:auto;max-height:520px}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--bg2);font-weight:600;color:var(--ink2);position:sticky;top:0;z-index:1;white-space:nowrap}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tr:hover td{background:#fbfcfe}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.tag.g{background:var(--greenL);color:var(--green)}
+.tag.r{background:var(--redL);color:var(--red)}
+.tag.n{background:#eef0f3;color:var(--ink2)}
+.tag.a{background:var(--amberL);color:var(--amber)}
+.mono{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.empty{padding:34px;text-align:center;color:var(--ink3);font-size:12.5px}
+.err{background:var(--redL);color:var(--red);border:1px solid #f0cfcf;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px}
+.jobs{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}
+.jobs .j{display:flex;gap:8px;align-items:center;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;cursor:pointer}
+.jobs .j:hover{border-color:var(--blue);background:var(--blueL)}
+.jobs .j .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jobs .j .m{font-size:11px;color:var(--ink3);white-space:nowrap}
+.loading{display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);margin-top:12px}
+.loading.on{display:flex}
+.spin{width:13px;height:13px;border:2px solid var(--line2);border-top-color:var(--blue);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="ic">量</div><div class="ttl">工程量统计</div>
+  <div class="sp"></div>
+  <div class="who" id="who"></div>
+  <a data-home>← 返回首页</a>
+  <a href="/logout">退出</a>
+</div>
+<main>
+  <div id="err"></div>
+
+  <div class="panel">
+    <div class="ph"><b>① 传图与清单</b><div class="sp"></div>
+      <a class="hint" href="javascript:void 0" id="jobBtn">历史任务 ▾</a></div>
+    <div class="pb">
+      <div class="drop" id="dropDwg">
+        <div class="big">把 dwg / dxf 拖进来，或点这里选（可多份）</div>
+        <div class="small">dwg 会在服务端自动转 dxf；一份图里多张图纸建议分开传</div>
+      </div>
+      <input type="file" id="fileDwg" multiple accept=".dwg,.dxf" hidden>
+      <div class="picked" id="pickedDwg"></div>
+
+      <div class="drop" id="dropList" style="margin-top:12px">
+        <div class="big">工程量清单（xls / xlsx）—— 可选</div>
+        <div class="small">传了才做「清单对照」；不传就只出图面统计</div>
+      </div>
+      <input type="file" id="fileList" accept=".xls,.xlsx" hidden>
+      <div class="picked" id="pickedList"></div>
+
+      <div class="row">
+        <div class="field"><label>容差 %</label><input id="tol" value="0.5"></div>
+        <button class="btn pri" id="run">开始统计</button>
+        <span class="hint" style="margin:0">统计只出数、不判合格；判定归审核模块和人。</span>
+      </div>
+      <div class="loading" id="loading"><div class="spin"></div><span id="loadTxt">正在解析图形…</span></div>
+      <div class="hint">图层名写成「长度-xxx / 个数-xxx / 面积-xxx」时，直接按前缀定口径；没前缀的图层只进「图层小计」，不参与对撞。</div>
+    </div>
+  </div>
+
+  <div id="res" style="display:none">
+    <div class="panel">
+      <div class="ph"><b id="resTitle">统计结果</b><div class="sp"></div>
+        <button class="btn" id="export">导出 xlsx</button></div>
+      <div class="stats" id="stats"></div>
+      <div class="tabs" id="tabs">
+        <button data-t="groups" class="on">工程量汇总</button>
+        <button data-t="rows">清单对照</button>
+        <button data-t="layers">图层小计</button>
+        <button data-t="notes">文字注记</button>
+      </div>
+      <div class="tblwrap" id="tbody"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="jobsPanel" style="display:none">
+    <div class="ph"><b>历史任务</b><div class="sp"></div><span class="hint">点一条回看（只列你自己的）</span></div>
+    <div class="pb"><div class="jobs" id="jobs"></div></div>
+  </div>
+</main>
+
+<script src="/static/auth.js?v=1"></script>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = (v, d = 2) => v == null ? '—' : (typeof v === 'number' ? v.toLocaleString('zh-CN', {maximumFractionDigits: d}) : v);
+let pickDwg = [], pickList = null, RES = null, JOB = null, TAB = 'groups';
+
+function setErr(t) { $('#err').innerHTML = t ? `<div class="err">${t}</div>` : ''; }
+
+function renderPicked() {
+  const d = $('#pickedDwg');
+  d.innerHTML = '';
+  pickDwg.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'f';
+    el.innerHTML = `<span title="${f.name}">${f.name}</span><i data-i="${i}">×</i>`;
+    d.appendChild(el);
+  });
+  d.querySelectorAll('i').forEach(x => x.onclick = e => { pickDwg.splice(+e.target.dataset.i, 1); renderPicked(); });
+  const l = $('#pickedList');
+  l.innerHTML = pickList ? `<div class="f"><span>${pickList.name}</span><i id="rmList">×</i></div>` : '';
+  if (pickList) $('#rmList').onclick = () => { pickList = null; renderPicked(); };
+}
+
+function wireDrop(dropId, inputId, multi, onPick) {
+  const drop = $(dropId), inp = $(inputId);
+  drop.onclick = () => inp.click();
+  inp.onchange = () => { if (inp.files.length) onPick([...inp.files]); inp.value = ''; };
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('on'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('on'); }));
+  drop.addEventListener('drop', e => {
+    const fs = [...(e.dataTransfer?.files || [])];
+    if (fs.length) onPick(multi ? fs : [fs[0]]);
+  });
+}
+wireDrop('#dropDwg', '#fileDwg', true, fs => { pickDwg = fs; renderPicked(); });
+wireDrop('#dropList', '#fileList', false, fs => { pickList = fs[0]; renderPicked(); });
+
+$('#run').onclick = async () => {
+  if (!pickDwg.length) { setErr('先选至少一份 dwg / dxf'); return; }
+  setErr('');
+  const fd = new FormData();
+  pickDwg.forEach(f => fd.append('dwg', f));
+  if (pickList) fd.append('list', pickList);
+  fd.append('tol', $('#tol').value || '0.5');
+  const btns = $('#run'); btns.disabled = true;
+  $('#loading').classList.add('on');
+  $('#loadTxt').textContent = pickList ? '解析图形 + 对照清单…（dwg 要先转 dxf，稍等）' : '解析图形…（dwg 要先转 dxf，稍等）';
+  try {
+    const r = await fetch('/api/qty/run', {method: 'POST', body: fd}).then(r => r.json());
+    if (!r.ok) { setErr(r.error || '统计失败'); return; }
+    RES = r.result; JOB = r.job_id;
+    show();
+    loadJobs();
+  } catch (e) {
+    setErr('请求失败：' + e);
+  } finally {
+    btns.disabled = false; $('#loading').classList.remove('on');
+  }
+};
+
+function show() {
+  if (!RES) return;
+  $('#res').style.display = '';
+  $('#resTitle').textContent = '统计结果 · ' + (RES.list.project || RES.list.title || RES.scans[0].file);
+  const t = RES.totals;
+  $('#stats').innerHTML = [
+    ['图幅', t.files, '份'], ['图层', t.layers, '个'], ['实体', fmt(t.entities, 0), ''],
+    ['线长（米）', fmt(t.length_m), ''], ['面积（㎡）', fmt(t.area_m2), ''],
+    ['文字注记', t.notes, '条'], ['清单行', t.list_rows, ''],
+    ['一致', t['一致'], ''], ['差异', t['差异'], ''], ['无法对位', t['无法对位'], '']
+  ].map(([k, v, u]) => `<div class="s"><div class="k">${k}</div><div class="v">${v}<small>${u}</small></div></div>`).join('');
+  drawTab();
+}
+
+function drawTab() {
+  const box = $('#tbody');
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === TAB));
+  if (!RES) { box.innerHTML = ''; return; }
+  if (TAB === 'groups') {
+    const gs = RES.groups || [];
+    if (!gs.length) { box.innerHTML = `<div class="empty">图上没有「长度- / 个数- / 面积-」前缀的图层，也没有可汇总的口径。</div>`; return; }
+    box.innerHTML = `<table><thead><tr><th>名称</th><th>单位</th><th class="num">数量</th><th class="num">图层数</th><th>图层</th><th>来源文件</th></tr></thead><tbody>` +
+      gs.map(g => `<tr><td>${g.name}${g.inferred ? ' <span class="tag n">推断</span>' : ''}</td><td>${g.unit_label}</td><td class="num">${fmt(g.value)}</td>
+        <td class="num">${g.layers.length}</td><td class="mono">${g.layers.slice(0, 3).join('<br>')}${g.layers.length > 3 ? '…' : ''}</td>
+        <td class="mono">${g.files.join('<br>')}</td></tr>`).join('') + '</tbody></table>';
+  } else if (TAB === 'rows') {
+    const rs = RES.rows || [];
+    if (!rs.length) { box.innerHTML = `<div class="empty">没传清单，或清单里没解析到明细行。只出图面统计时这一页是空的。</div>`; return; }
+    box.innerHTML = `<table><thead><tr><th>序号</th><th>项目内容</th><th class="num">清单数量</th><th>单位</th>
+      <th class="num">图层合计</th><th class="num">图面注记</th><th class="num">差异</th><th class="num">差异%</th>
+      <th>判定</th><th>说明</th></tr></thead><tbody>` +
+      rs.map(r => {
+        const cls = r.status === '一致' ? 'g' : r.status === '差异' ? 'r' : 'n';
+        return `<tr><td>${r.seq}</td><td>${r.name}</td><td class="num">${fmt(r.qty)}</td><td>${r.unit_label || r.raw_unit}</td>
+          <td class="num">${fmt(r.fig_layer)}</td><td class="num">${fmt(r.fig_note)}</td>
+          <td class="num">${fmt(r.diff)}</td><td class="num">${r.pct == null ? '—' : r.pct}</td>
+          <td><span class="tag ${cls}">${r.status}</span></td>
+          <td style="font-size:11.5px;color:var(--ink2)">${r.note || ''}${r.fig_layer_src ? `<div class="mono">图层：${r.fig_layer_src}${r.fig_layer_inferred ? '（口径按实体类型推断）' : ''}</div>` : ''}${r.fig_note_src ? `<div class="mono">注记：${r.fig_note_src}</div>` : ''}</td></tr>`;
+      }).join('') + '</tbody></table>';
+  } else if (TAB === 'layers') {
+    const rows = [];
+    (RES.scans || []).forEach(s => (s.layers || []).forEach(d => rows.push({s, d})));
+    box.innerHTML = `<table><thead><tr><th>文件</th><th>图层</th><th class="num">实体</th><th>主要类型</th>
+      <th class="num">线长(米)</th><th class="num">面积(㎡)</th><th class="num">文字</th><th>口径</th><th>主要块</th></tr></thead><tbody>` +
+      rows.map(({s, d}) => `<tr><td class="mono">${s.file}</td><td>${d.layer}</td><td class="num">${d.n}</td><td>${d.main_kind}</td>
+        <td class="num">${fmt(d.length_m)}</td><td class="num">${fmt(d.area_m2)}</td><td class="num">${d.notes}</td>
+        <td>${d.qty_unit ? `<span class="tag a">${d.qty_name}</span>` : '<span class="mono">—</span>'}</td>
+        <td class="mono">${(d.block_list || []).map(b => b[0] + '×' + b[1]).join('、')}</td></tr>`).join('') +
+      '</tbody></table>';
+  } else {
+    const ns = [];
+    (RES.scans || []).forEach(s => (s.notes || []).forEach(n => ns.push({s, n})));
+    if (!ns.length) { box.innerHTML = `<div class="empty">图里没抓到「数字+单位」形式的文字注记。</div>`; return; }
+    box.innerHTML = `<table><thead><tr><th>文件</th><th>图层</th><th>文字</th><th class="num">数值</th><th>单位</th></tr></thead><tbody>` +
+      ns.map(({s, n}) => `<tr><td class="mono">${s.file}</td><td>${n.layer}</td><td>${n.text}</td>
+        <td class="num">${fmt(n.value)}</td><td>${n.unit_label}</td></tr>`).join('') + '</tbody></table>';
+  }
+}
+
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { TAB = b.dataset.t; drawTab(); });
+
+$('#export').onclick = () => {
+  if (!JOB) return;
+  // 下载走的是顶层跳转，不走 fetch —— 包装管不到它，得自己把票据带上，
+  // 否则飞书 iframe 里点导出就是 401（cookie 被第三方拦截）。
+  location.href = (window.qcWithK ? window.qcWithK('/api/qty/job/' + JOB + '/xlsx')
+                                  : '/api/qty/job/' + JOB + '/xlsx');
+};
+
+$('#jobBtn').onclick = () => {
+  const p = $('#jobsPanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+  if (p.style.display === '') loadJobs();
+};
+
+async function loadJobs() {
+  const r = await fetch('/api/qty/jobs').then(r => r.json()).catch(() => null);
+  if (!r || !r.ok) return;
+  const box = $('#jobs');
+  if (!r.items.length) { box.innerHTML = '<div class="empty">还没有历史任务</div>'; return; }
+  box.innerHTML = '';
+  r.items.forEach(it => {
+    const el = document.createElement('div');
+    el.className = 'j';
+    el.innerHTML = `<span class="t">${it.name || it.id}</span><span class="m">${it.created_at}</span>
+      <span class="m" style="cursor:pointer" data-del="${it.id}">删除</span>`;
+    el.onclick = async e => {
+      if (e.target.dataset.del) {
+        if (!confirm('删除这条统计记录？')) return;
+        await fetch('/api/qty/job/' + e.target.dataset.del + '/delete', {method: 'POST'});
+        loadJobs(); return;
+      }
+      const d = await fetch('/api/qty/job/' + it.id).then(r => r.json());
+      if (d.ok) { RES = d.result; JOB = it.id; show(); }
+    };
+    box.appendChild(el);
+  });
+}
+
+(async () => {
+  const me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (me && me.ok) $('#who').textContent = me.name + (me.master ? '（管理通道）' : '');
+})();
+</script>
+<script src="/static/nav.js?v=2"></script>
+</body>
+</html>

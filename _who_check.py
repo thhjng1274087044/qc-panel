@@ -12,7 +12,7 @@ import os
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get("QC_BASE", "http://127.0.0.1:8776")
-TOKEN = os.environ.get("QC_TOKEN", "")
+TOKEN = os.environ.get("QC_TOKEN", "qc-74f3a91c2b6e")
 
 results: list[tuple[bool, str, str]] = []
 
@@ -41,7 +41,7 @@ def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         pg = browser.new_page(viewport={"width": 1440, "height": 980})
-        pg.goto(f"{BASE}/?k={TOKEN}", wait_until="domcontentloaded")
+        pg.goto(f"{BASE}/host?k={TOKEN}", wait_until="domcontentloaded")
         pg.wait_for_timeout(4500)
 
         panel = None
@@ -55,10 +55,10 @@ def main() -> None:
 
         box = pg.query_selector("#plug").bounding_box()
 
-        # ---- 态 1：名单里有人（假宿主返回张示例的 open_id）
+        # ---- 态 1：名单里有人（假宿主返回邵宇航的 open_id）
         a = read_who(panel)
         print("命中态:", json.dumps(a, ensure_ascii=False))
-        ck(bool(a and a["text"] == "张示例"), "命中：显示真名", (a or {}).get("text", ""))
+        ck(bool(a and a["text"] == "邵宇航"), "命中：显示真名", (a or {}).get("text", ""))
         ck(bool(a and not a["unk"]), "命中：不加虚线标记")
         ck(bool(a and a["border"] != "dashed"), "命中：边框实线", (a or {}).get("border", ""))
         ck(bool(a and a["w"] <= 90), "命中：不挤占顶栏", f"{a['w']}px")
@@ -86,8 +86,8 @@ def main() -> None:
         # 逐条截顶栏，便于肉眼对照
         panel.evaluate("""() => {
             const q = window.__qc;
-            q.S.who = { id: 'ou_00000000000000000000000000000001', name: '张示例',
-                        byBase: false, label: '张示例' };
+            q.S.who = { id: 'ou_39e6d9ad114dc7a6a86f0a467bf217a3', name: '邵宇航',
+                        byBase: false, label: '邵宇航' };
             q.renderWho();
         }""")
         pg.wait_for_timeout(250)

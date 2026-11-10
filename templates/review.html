@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>核对台 · 测绘质检</title>
+<style>
+:root{
+  --blue:#1c5294; --blueL:#e8f0fb; --ink:#1f2329; --ink2:#5a6472; --ink3:#8f98a4;
+  --line:#e8eaed; --line2:#d8dce1; --bg2:#f7f8fa; --bg3:#fafbfc;
+  --green:#2e7d46; --greenL:#eaf7ee; --red:#c0392b; --redL:#fdeeed;
+  --amber:#b8860b; --amberL:#fdf6e3; --amberB:#f0dcb0;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);
+  background:var(--bg3);display:flex;flex-direction:column;overflow:hidden}
+
+/* ---------- 顶栏 ---------- */
+.hd{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:7px;padding:0 10px;
+  border-bottom:1px solid var(--line);background:#fff}
+.hd .home{flex:0 0 auto;font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;
+  background:var(--blueL);border:1px solid #c3d5f0;border-radius:4px;padding:0 6px;line-height:17px;white-space:nowrap}
+.hd .home:hover{background:#dbe8f9}
+.hd .ic{width:16px;height:16px;border-radius:4px;background:var(--blue);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:9px;font-weight:700;flex:0 0 auto}
+.hd .ttl{font-size:12.5px;font-weight:600;white-space:nowrap}
+.hd .sp{flex:1}
+.hd .who{max-width:120px;font-family:var(--mono);font-size:9.5px;color:var(--ink2);
+  background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:1px 5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd .st{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink2);white-space:nowrap}
+.hd .st i{width:6px;height:6px;border-radius:50%;background:var(--ink3);display:block}
+.hd .st.ok i{background:var(--green)} .hd .st.ok{color:var(--green)}
+.hd .st.wn i{background:var(--amber)} .hd .st.wn{color:var(--amber)}
+
+/* ---------- 汇总条：四个数永远都在 ---------- */
+.sum{flex:0 0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:5px 11px;background:#fff;border-bottom:1px solid var(--line);font-size:11px;color:var(--ink2)}
+.sum b{font-weight:600;color:var(--ink)}
+.sum .n{font-family:var(--mono);font-weight:600}
+.sum .k{color:var(--ink3)}
+.sum .g{color:var(--green)} .sum .r{color:var(--red)} .sum .a{color:var(--amber)}
+.sum .sep{color:var(--line2)}
+
+/* 预览副本提示条：只在 QC_PREVIEW=1 的实例上出现。
+   副本和正式站长得一样，不标出来人会以为自己的表态记进正式账本了。 */
+.prevbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 11px;
+  background:#f3eefb;border-bottom:1px solid #dfd2f2;color:#5b3d8f;font-size:11px;line-height:1.5}
+.prevbar b{font-weight:600;color:#4a2f7a}
+
+/* ---------- 三栏 ---------- */
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:288px minmax(0,1fr) 352px;
+  gap:0;overflow:hidden;background:var(--bg3)}
+.col{min-height:0;overflow:auto;background:#fff}
+.mat{border-right:1px solid var(--line);background:var(--bg3)}
+.items{border-right:1px solid var(--line)}
+.det{background:#fff;overflow-y:auto}
+
+/* 材料列表 */
+.grp{display:flex;align-items:center;gap:6px;padding:7px 10px 4px;font-size:10.5px;
+  color:var(--ink3);text-transform:none;background:var(--bg3);position:sticky;top:0;z-index:2}
+.grp b{color:var(--ink2);font-weight:600;font-size:11px}
+.grp .c{font-family:var(--mono);background:#eef0f3;border-radius:7px;padding:0 5px}
+.m{padding:6px 10px;border-bottom:1px solid var(--line);cursor:pointer;background:#fff}
+.m:hover{background:var(--bg2)}
+.m.on{background:var(--blueL);box-shadow:inset 3px 0 0 var(--blue)}
+.m .t1{display:flex;align-items:center;gap:6px}
+.m .tt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m .no{border:1px dashed var(--line2);border-radius:6px;color:var(--ink3);font-size:10px;
+  padding:0 4px;flex:0 0 auto}
+.m .t2{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ink3);margin-top:2px;flex-wrap:wrap}
+.m .t2 .mini{font-family:var(--mono)}
+.pill{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:600;
+  padding:0 5px;border-radius:8px;line-height:15px}
+.pill.g{background:var(--greenL);color:var(--green)}
+.pill.r{background:var(--redL);color:var(--red)}
+.pill.a{background:var(--amberL);color:var(--amber)}
+.pill.n{background:#eef0f3;color:var(--ink2)}
+.m .bar{height:3px;border-radius:2px;background:#eef0f3;margin-top:4px;overflow:hidden;display:flex}
+.m .bar i{display:block;height:100%}
+
+/* 检查项清单 */
+.ihead{position:sticky;top:0;z-index:3;background:#fff;border-bottom:1px solid var(--line);padding:7px 11px}
+.ihead .r1{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.ihead .nm{font-size:13px;font-weight:600}
+/* 项目编号：实库里有 7 个项目都叫「未命名项目」、2 个都叫「绿驹MVP验证」，
+   光看标题分不出点的是哪一份，头部必须带编号。 */
+.ihead .pno{font-family:var(--mono);font-size:10px;color:var(--blue);background:var(--blueL);
+  border:1px solid #c3d5f0;border-radius:4px;padding:0 4px;line-height:15px;flex:0 0 auto}
+.ihead .mt{font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.ihead .r2{display:flex;gap:9px;flex-wrap:wrap;font-size:10.5px;color:var(--ink2);margin-top:2px}
+.warn{margin:0;padding:0}
+.strip{display:flex;align-items:center;gap:6px;padding:5px 11px;font-size:11px;line-height:1.5;
+  background:var(--amberL);border-bottom:1px solid var(--amberB);color:#7a5200}
+.strip b{font-weight:600}
+.wbox{margin:7px 11px 0;border-radius:6px;background:var(--amberL);
+  border:1px solid var(--amberB);overflow:hidden}
+.wbox .wh{display:flex;align-items:center;gap:6px;padding:5px 9px;font-size:11px;
+  color:#7a5200;cursor:pointer;user-select:none}
+.wbox .wh b{font-weight:600}
+.wbox .wh .ar{margin-left:auto;font-size:10px;opacity:.75}
+.wbox ul{margin:0;padding:0 9px 7px 24px;font-size:11px;line-height:1.62;color:#7a5200}
+.wbox ul li{margin:2px 0}
+.wbox ul li b{font-weight:600}
+.wbox.fold ul{display:none}
+.warn.blue{background:#eef5ff;border-color:#c9dcf5;color:#1c4f8f}
+
+.tbl{padding:0 0 8px}
+.rowh,.row{display:grid;grid-template-columns:86px minmax(0,1fr) 78px 52px 56px;
+  gap:6px;align-items:center;padding:5px 11px;font-size:11px}
+.rowh{color:var(--ink3);font-size:10px;border-bottom:1px solid var(--line);position:sticky;top:74px;
+  background:var(--bg3);z-index:2}
+.row{border-bottom:1px solid #f2f3f5;cursor:pointer}
+.row:hover{background:var(--bg2)}
+.row.on{background:var(--blueL);box-shadow:inset 3px 0 0 var(--blue)}
+.row .bd{font-size:10px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .it{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.row .nu{font-family:var(--mono);font-size:10px;text-align:right;color:var(--ink2);white-space:nowrap}
+.row .nu.d{color:var(--ink)}
+.row .mk{font-size:9.5px;text-align:center;white-space:nowrap}
+.row .mk.y{color:var(--green)}
+.row .mk.x{color:var(--red)}
+.row .mk.h{color:var(--amber)}
+.row .mk.q{color:#c3c9d1}
+.row.flag{box-shadow:inset 3px 0 0 var(--amber)}
+.catgrp{display:flex;align-items:center;gap:7px;padding:6px 11px 4px;background:var(--bg2);
+  border-bottom:1px solid var(--line);font-size:10.5px;position:sticky;top:98px;z-index:1}
+.catgrp b{font-size:11.5px;font-weight:600;color:var(--ink)}
+.catgrp .n{color:var(--ink3);font-family:var(--mono)}
+.filt{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.filt button{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:11px;cursor:pointer;
+  border:1px solid var(--line2);background:#fff;color:var(--ink2)}
+.filt button.on{background:var(--blueL);border-color:#a9c3e8;color:var(--blue);font-weight:600}
+.empty{padding:26px 14px;text-align:center;color:var(--ink3);font-size:11.5px;line-height:1.7}
+
+/* 详情 */
+.det .box{padding:10px 12px;border-bottom:1px solid var(--line)}
+.det .h{font-size:10.5px;color:var(--ink3);margin-bottom:5px}
+.det .big{font-size:12.5px;font-weight:600;line-height:1.5;word-break:break-word}
+.det .kv{display:grid;grid-template-columns:58px minmax(0,1fr);gap:3px 8px;font-size:11px;margin-top:6px}
+.det .kv dt{color:var(--ink3)}
+.det .kv dd{margin:0;font-family:var(--mono);font-size:10.5px;word-break:break-all}
+.det .num{display:flex;gap:8px;align-items:center;margin-top:8px;padding:7px 9px;border-radius:6px;background:var(--bg2)}
+.det .num div{flex:1;min-width:0}
+.det .num .l{font-size:9.5px;color:var(--ink3)}
+.det .num .v{font-family:var(--mono);font-size:12px;font-weight:600;word-break:break-all}
+.det .num .op{color:var(--ink3);flex:0 0 auto}
+.det .say{font-size:11.5px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.det .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.det .mine{padding:8px 10px;border-radius:6px;font-size:11.5px;line-height:1.6}
+.det .mine.agree{background:var(--greenL);color:var(--green)}
+.det .mine.dispute{background:var(--redL);color:var(--red)}
+.det .mine.hold{background:var(--amberL);color:#7a5200}
+.det .none{color:var(--ink3);font-size:11.5px}
+.det .undo{margin-top:6px;font-size:10.5px;color:var(--blue);cursor:pointer;text-decoration:underline}
+
+/* ---------- 底部动作条 ---------- */
+.ft{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;
+  border-top:1px solid var(--line2);box-shadow:0 -2px 8px rgba(15,23,42,.05)}
+.ft .hint{flex:1;min-width:0;font-size:10.5px;color:var(--ink3);line-height:1.45}
+.ft .hint b{color:var(--ink2);font-weight:600}
+.ft .btns{display:flex;gap:6px;flex:0 0 auto}
+.btn{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line2);background:#fff;color:var(--ink2);white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ag{color:var(--green);border-color:#cfe8d8;background:var(--greenL)}
+.btn.ag:hover:not(:disabled){background:#dff3e6}
+.btn.ds{color:var(--red);border-color:#f0cfcf;background:var(--redL)}
+.btn.ds:hover:not(:disabled){background:#fbe3e2}
+.btn.hd2{color:var(--amber);border-color:var(--amberB);background:var(--amberL)}
+.btn.hd2:hover:not(:disabled){background:#fbeecb}
+
+/* ---------- 选择浮层 ---------- */
+.sheet{position:fixed;inset:0;background:rgba(15,23,42,.28);display:flex;align-items:flex-end;
+  justify-content:center;z-index:30}
+.sheet[hidden]{display:none}
+.sheet .dlg{width:min(560px,94vw);background:#fff;border-radius:10px 10px 0 0;
+  padding:12px 14px 16px;box-shadow:0 -6px 24px rgba(15,23,42,.18)}
+.sheet .dt{font-size:12.5px;font-weight:600;margin-bottom:2px}
+.sheet .dd{font-size:11px;color:var(--ink3);margin-bottom:9px;line-height:1.55}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{font:inherit;font-size:12px;padding:7px 13px;border-radius:18px;cursor:pointer;
+  border:1px solid var(--line2);background:#fff;color:var(--ink)}
+.chip:hover{background:var(--bg2);border-color:#c3c9d1}
+.chip.on{background:var(--blueL);border-color:#a9c3e8;color:var(--blue);font-weight:600}
+.chip.red.on{background:var(--redL);border-color:#f0cfcf;color:var(--red)}
+.sheet .foot{display:flex;align-items:center;gap:8px;margin-top:12px}
+.sheet .foot .sp{flex:1}
+.mini-lbl{font-size:10.5px;color:var(--ink3);margin:10px 0 5px}
+
+/* ---------- 窄屏：飞书侧栏里只有三四百 px ---------- */
+@media(max-width:1180px){
+  .wrap{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .mat{border-right:0;border-bottom:1px solid var(--line);max-height:132px;overflow:auto;display:flex;flex-wrap:wrap}
+  .grp{width:100%}
+  .m{width:50%;border-right:1px solid var(--line)}
+  .det:not(.rowdet){display:none}
+  /* 选中行下面展开的详情（窄屏专用，宽屏用右栏） */
+  .rowdet{display:block;background:#fbfcfd;border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line2);overflow:visible}
+  .rowdet .box{padding:8px 11px}
+  .rowdet .num{margin-top:6px}
+  .rowh{display:none}
+  .catgrp{position:static}
+  .row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t m" "d d";gap:2px 8px;padding:8px 11px}
+  .row .bd{display:none}
+  .row .it{grid-area:t;font-size:12px;white-space:normal;line-height:1.45}
+  .row .nu{display:none}
+  .row .mv{display:none}   /* 窄屏的 data-line 末尾已经写了结论，pill 重复且会挤到第三行 */
+  .row .mk{grid-area:m;text-align:right;font-size:11px}
+  .row::after{content:attr(data-line);grid-area:d;font-size:10px;color:var(--ink3);
+    font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media(max-width:520px){
+  .m{width:100%}
+  .ft{flex-wrap:wrap}
+  .ft .hint{width:100%;flex:0 0 100%}
+  .ft .btns{width:100%}
+  .ft .btns .btn{flex:1}
+}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <a class="home" id="home" href="/">← 首页</a>
+  <span class="ic">核</span>
+  <span class="ttl">核对台</span>
+  <span class="sp"></span>
+  <span class="who" id="who" style="display:none"></span>
+  <span class="st" id="st"><i></i><span>连接中</span></span>
+</header>
+
+<div class="sum" id="sum">
+  <span><span class="k">共</span> <b class="n">—</b> <span class="k">项</span></span>
+  <span class="sep">|</span>
+  <span><span class="k">机器判</span> <span class="g">通过 <b class="n" id="sP">0</b></span>
+        <span class="r">不过 <b class="n" id="sF">0</b></span>
+        <span class="a">判不了 <b class="n" id="sH">0</b></span></span>
+  <span class="sep">|</span>
+  <span><span class="k">你已表态</span> <b class="n" id="sD">0</b>
+        <span class="k">有意见</span> <b class="n r" id="sX">0</b></span>
+</div>
+
+<div class="wrap">
+  <aside class="col mat">
+    <div class="grp"><b>有检查项明细</b><span class="c" id="cN">0</span></div>
+    <div id="mCompare" style="display:contents"></div>
+    <div class="grp"><b>只有整条结论</b><span class="c" id="rN">0</span></div>
+    <div id="mRecords" style="display:contents"></div>
+  </aside>
+
+  <main class="col items">
+    <div class="ihead">
+      <div class="r1"><span class="pno" id="iPno" style="display:none"></span><span class="nm" id="iNm">选一份材料</span><span class="mt" id="iMt"></span></div>
+      <div class="r2" id="iSub"></div>
+      <div class="filt" id="filt"></div>
+    </div>
+    <div id="warnWrap"></div>
+    <div class="tbl" id="tbl">
+      <div class="empty">左边挑一份材料。<br>有检查项明细的可以逐项表态，只有整条结论的只能整条表态。</div>
+    </div>
+  </main>
+
+  <section class="col det" id="det">
+    <div class="box"><div class="none">选中一条检查项，这里显示它当时的数值、机器理由和你已经表过什么态。</div></div>
+  </section>
+</div>
+
+<footer class="ft">
+  <div class="hint" id="hint">选中一条检查项后，三个键才可用</div>
+  <div class="btns">
+    <button class="btn ag" id="bAgree" disabled>同意</button>
+    <button class="btn ds" id="bDispute" disabled>有意见</button>
+    <button class="btn hd2" id="bHold" disabled>判不了</button>
+  </div>
+</footer>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="dlg">
+    <div class="dt" id="shT"></div>
+    <div class="dd" id="shD"></div>
+    <div class="chips" id="shC"></div>
+    <div class="foot">
+      <span class="sp"></span>
+      <button class="btn" id="shCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/auth.js?v=2"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+
+  var S = {
+    cur: null,          // {src,key}
+    meta: null,
+    items: [],
+    sel: null,          // 选中的 item 对象
+    t0: 0,
+    reasons: {dispute: [], hold: []},
+    mode: "",           // 当前浮层：dispute / hold
+    filter: "all",      // 列表筛选：all / todo / fail / hold / flag
+    wfold: true         // 技术提醒默认折叠（窄屏一定要折，不然把清单挤没）
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c];
+    });
+  }
+  function api(url, opt) {
+    opt = opt || {};
+    return fetch(url, opt).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || !j.ok) throw (window.qcExplain401 ? window.qcExplain401(j) : j);
+        return j;
+      });
+    });
+  }
+  function st(m) {
+    if (!m) return "";
+    $("#st").className = "st " + (m === "ok" ? "ok" : m === "wn" ? "wn" : "");
+    $("#st").querySelector("span").textContent =
+      m === "ok" ? "已连接" : m === "wn" ? "有问题" : "连接中";
+  }
+
+  var V_CN = {pass: "通过", fail: "不过", hold: "判不了"};
+
+  /* ---------------- 材料列表 ---------------- */
+  function loadMats() {
+    st("");
+    api("/api/review/materials").then(function (d) {
+      st("ok");
+      S.mats = (d.compare || []).concat(d.records || []);
+      $("#cN").textContent = d.compare.length;
+      $("#rN").textContent = d.records.length;
+      var box = $("#mCompare");
+      box.innerHTML = "";
+      if (d.compare_error) {
+        box.innerHTML = '<div class="empty" style="padding:12px;text-align:left">' +
+          "比对库读不到：" + esc(d.compare_error) +
+          "<br>这几份明细暂时看不了，下面的整条结论不受影响。</div>";
+      } else if (!d.compare.length) {
+        box.innerHTML = '<div class="empty" style="padding:12px">没有带明细的材料</div>';
+      } else {
+        d.compare.forEach(function (m) { box.appendChild(matNode(m)); });
+      }
+      var rb = $("#mRecords");
+      rb.innerHTML = "";
+      d.records.forEach(function (m) { rb.appendChild(matNode(m)); });
+
+      // 默认打开哪一份：地址上指定了就先认它（从飞书某条记录跳过来时用 ?rec=），
+      // 否则开第一份有明细的。
+      var want = "";
+      try {
+        var q = new URLSearchParams(location.search);
+        want = q.get("rec") || q.get("mat") || "";
+      } catch (e) { want = ""; }
+      var hit = null;
+      if (want) {
+        hit = d.compare.concat(d.records).filter(function (m) { return m.key === want; })[0];
+      }
+      var first = hit || d.compare.filter(function (m) { return m.total > 0; })[0] || d.compare[0];
+      if (first) openMat(first.src, first.key);
+      else if (d.records[0]) openMat(d.records[0].src, d.records[0].key);
+    }).catch(function (e) {
+      st("wn");
+      $("#tbl").innerHTML = '<div class="empty">读不到材料：' + esc(e.error || e.message || e) + "</div>";
+    });
+  }
+
+  function matNode(m) {
+    var el = document.createElement("div");
+    el.className = "m";
+    el.dataset.key = m.src + "|" + m.key;
+    var total = m.total || 0;
+    var done = m.done || 0;
+    var pct = total ? Math.round(done / total * 100) : 0;
+    var badge = "";
+    if (m.src === "records") {
+      badge = '<span class="pill ' + (m.pass ? "g" : m.fail ? "r" : "a") + '">' +
+        (m.pass ? "机器通过" : m.fail ? "机器不过" : "机器判不了") + "</span>";
+    } else if (m.fail > 0) {
+      badge = '<span class="pill r">不过 ' + m.fail + "</span>";
+    } else if (m.total === 0) {
+      badge = '<span class="pill a">没跑出结果</span>';
+    } else if (m.hold > 0) {
+      badge = '<span class="pill a">判不了 ' + m.hold + "</span>";
+    } else {
+      badge = '<span class="pill g">全通过</span>';
+    }
+    var bars = "";
+    if (m.src === "compare" && total) {
+      bars = '<div class="bar">' +
+        '<i style="width:' + (m.pass / total * 100) + '%;background:#2e7d46"></i>' +
+        '<i style="width:' + (m.fail / total * 100) + '%;background:#c0392b"></i>' +
+        '<i style="width:' + (m.hold / total * 100) + '%;background:#d9b25a"></i></div>';
+    }
+    el.innerHTML =
+      '<div class="t1"><span class="tt">' + esc(m.title) + "</span>" +
+      (m.src === "compare" ? '<span class="no">p' + (m.key.split(":")[1] || "") + "</span>" : "") +
+      badge + "</div>" +
+      '<div class="t2">' +
+      (m.src === "compare"
+        ? '<span class="mini">' + total + " 项</span>" +
+          (m.batch > 1 ? '<span class="mini" title="同名同项数的有 ' + m.batch +
+            ' 份，内容一样">同批 ' + m.batch + " 份</span>" : "") +
+          (m.note ? '<span class="mini">' + esc(m.note) + "</span>"
+                  : '<span class="mini">已表态 ' + done + " / " + total + "（" + pct + "%）</span>")
+        : '<span class="mini">整条 · 已表态 ' + done + "</span>") +
+      (m.dispute ? '<span class="pill r">有意见 ' + m.dispute + "</span>" : "") +
+      "</div>" + bars;
+    el.onclick = function () { openMat(m.src, m.key); };
+    return el;
+  }
+
+  function markMatOn(src, key) {
+    document.querySelectorAll(".m").forEach(function (n) {
+      n.classList.toggle("on", n.dataset.key === src + "|" + key);
+    });
+  }
+
+  /* ---------------- 打开一份材料 ---------------- */
+  function openMat(src, key) {
+    S.cur = {src: src, key: key};
+    S.sel = null;
+    S.items = [];
+    S.t0 = Date.now();
+    markMatOn(src, key);
+    setBtns(false);
+    $("#tbl").innerHTML = '<div class="empty">读取中…</div>';
+    $("#warnWrap").innerHTML = "";
+
+    api("/api/review/items/" + encodeURIComponent(src) + "/" + encodeURIComponent(key))
+      .then(function (d) {
+        S.meta = d.meta;
+        S.items = d.items || [];
+        S.reasons = d.reasons || {dispute: [], hold: []};
+        renderHead();
+        renderWarn();
+        renderFilt();
+        renderList();
+        renderSum();
+        renderDet();
+        var next = S.items.filter(function (x) { return !x.mark; })[0] || S.items[0];
+        if (next) select(next);
+      })
+      .catch(function (e) {
+        $("#tbl").innerHTML = '<div class="empty">这份材料打不开：' +
+          esc(e.error || e.message || e) + "</div>";
+      });
+  }
+
+  function renderHead() {
+    var m = S.meta || {};
+    // 「p3」这种编号：同名项目太多（未命名项目 7 个、绿驹MVP验证 2 个），
+    // 只写标题的话点过来看着一模一样
+    var pno = (S.cur && S.cur.src === "compare") ? "p" + (S.cur.key.split(":")[1] || "") : "";
+    var pn = $("#iPno");
+    if (pn) {
+      pn.textContent = pno;
+      pn.style.display = pno ? "" : "none";
+    }
+    $("#iNm").textContent = m.title || "—";
+    $("#iMt").textContent = (m.round ? "第 " + m.round + " 轮 · " : "") +
+      (m.material_hash ? "指纹 " + m.material_hash : "");
+    $("#iSub").innerHTML =
+      (m.sub ? "<span>" + esc(m.sub) + "</span>" : "") +
+      '<span>判据版本 ' + esc(m.rule_ver || "") + "</span>" +
+      '<span>' + (m.has_detail
+        ? "检查项 " + S.items.length + " 项" + (m.dup_total ? "（原始 " + m.raw_total + " 行）" : "")
+        : "整条记录一条结论") + "</span>";
+  }
+
+  function curMatMeta() {
+    var c = S.cur || {};
+    return (S.mats || []).filter(function (x) {
+      return x.src === c.src && x.key === c.key;
+    })[0] || null;
+  }
+
+  function pLabel(key) {
+    var p = (key || "").split(":")[1] || "";
+    return p ? "p" + p : (key || "");
+  }
+
+  function renderWarn() {
+    var m = S.meta || {}, tech = [];
+    // 同一批数据被跑了好几遍：p1/p3 都叫「绿驹MVP验证」，p16/p17 都叫「资料2一键验收」。
+    // 切过去标题、项数、每一行都跟刚才一样 —— 不说清楚，人会以为点坏了。
+    var cm = curMatMeta(), dup = "";
+    if (cm && cm.dup_of) {
+      dup = '<div class="strip" style="background:#eef5ff;border-bottom-color:#c9dcf5;color:#1c4f8f">' +
+        "<b>这份和 " + esc(pLabel(cm.dup_of)) + " 是同一批数据</b>　同名、同 " + cm.total +
+        " 项。切过来看着一样是正常的，不是没反应</div>";
+    }
+    if (m.same_source_types && m.same_source_types.length) {
+      tech.push("<b>两侧文件是同一个文件</b>（" + esc(m.same_source_types.join("、")) +
+        "）。差一定是 0，这里点「同意」等于给假数据背书；正确表态是「判不了 · 材料不清」。");
+    }
+    if (m.zero_types && m.zero_types.length) {
+      tech.push("<b>整类零差</b>（" + esc(m.zero_types.join("、")) +
+        "）。两个独立来源之间不可能整类一点不差，可能是同一份折线抄到两边。只提醒，不改数。");
+    }
+    if (m.dup_total) {
+      tech.push("<b>同一条目被记了多遍</b>。原始 " + m.raw_total + " 行里有 " + m.dup_total +
+        " 行是同一个检查项的重复记录，已合并成 " + S.items.length +
+        " 项。不合并的话你会对着同一个点表态好几次，样本量又虚了。");
+    }
+    var hold = S.items.filter(function (x) { return x.verdict === "hold"; }).length;
+    var fail = S.items.filter(function (x) { return x.verdict === "fail"; }).length;
+    var strip = "";
+    if (fail === 0 && hold > 0) {
+      strip = '<div class="strip"><b>没有判出不合格，但有 ' + hold +
+        " 项没取到可比值</b>　「没查到」不等于「合格」，这一份不能当成通过</div>";
+    }
+    var box = "";
+    if (tech.length) {
+      box = '<div class="wbox' + (S.wfold ? " fold" : "") + '">' +
+        '<div class="wh" id="wh"><b>另有 ' + tech.length + " 处要注意</b>" +
+        '<span class="ar">' + (S.wfold ? "展开 ▾" : "收起 ▴") + "</span></div>" +
+        "<ul>" + tech.map(function (t) { return "<li>" + t + "</li>"; }).join("") + "</ul></div>";
+    }
+    $("#warnWrap").innerHTML = dup + strip + box;
+    var wh = $("#wh");
+    if (wh) wh.onclick = function () { S.wfold = !S.wfold; renderWarn(); };
+  }
+
+  var FILTERS = [["all", "全部"], ["todo", "未表态"], ["fail", "不过"], ["hold", "判不了"], ["flag", "可疑"]];
+
+  function visible(it) {
+    if (S.filter === "todo") return !it.mark;
+    if (S.filter === "fail") return it.verdict === "fail";
+    if (S.filter === "hold") return it.verdict === "hold";
+    if (S.filter === "flag") return !!(it.same_source || it.zero_suspect);
+    return true;
+  }
+
+  function renderFilt() {
+    var box = $("#filt");
+    box.innerHTML = FILTERS.map(function (f) {
+      var n = f[0] === "all" ? S.items.length
+        : S.items.filter(function (it) {
+            return f[0] === "todo" ? !it.mark : f[0] === "fail" ? it.verdict === "fail"
+              : f[0] === "hold" ? it.verdict === "hold" : (it.same_source || it.zero_suspect);
+          }).length;
+      return '<button data-f="' + f[0] + '"' + (S.filter === f[0] ? ' class="on"' : "") + ">" +
+        f[1] + " " + n + "</button>";
+    }).join("");
+    box.querySelectorAll("button").forEach(function (b) {
+      b.onclick = function () { S.filter = b.dataset.f; renderFilt(); renderList(); };
+    });
+  }
+
+  function renderList() {
+    if (!S.items.length) {
+      $("#tbl").innerHTML = '<div class="empty">这份材料一项可比对的内容都没有。<br>' +
+        "这不是「通过」，是「什么都没查」。</div>";
+      return;
+    }
+    var shown = S.items.map(function (it, i) { return {it: it, i: i}; }).filter(function (x) {
+      return visible(x.it);
+    });
+    if (!shown.length) {
+      $("#tbl").innerHTML = '<div class="empty">这个筛选下没有条目。换个筛选或看「全部」。</div>';
+      return;
+    }
+    // 每类的可见条数，给分组头用
+    var cnt = {};
+    shown.forEach(function (x) {
+      var c = cnt[x.it.cat_cn] || (cnt[x.it.cat_cn] = {n: 0, f: 0, h: 0});
+      c.n++;
+      if (x.it.verdict === "fail") c.f++;
+      if (x.it.verdict === "hold") c.h++;
+    });
+
+    var h = '<div class="rowh"><span>楼栋</span><span>检查项</span>' +
+      '<span style="text-align:right">差 / 限差</span>' +
+      '<span style="text-align:right">机器</span><span style="text-align:center">你</span></div>';
+    var last = null;
+    shown.forEach(function (x) {
+      var it = x.it, i = x.i;
+      if (it.cat_cn !== last) {
+        last = it.cat_cn;
+        var c = cnt[it.cat_cn];
+        h += '<div class="catgrp"><b>' + esc(it.cat_cn) + "</b>" +
+          '<span class="n">' + c.n + " 项</span>" +
+          (c.f ? '<span class="pill r">不过 ' + c.f + "</span>" : "") +
+          (c.h ? '<span class="pill a">判不了 ' + c.h + "</span>" : "") +
+          "</div>";
+      }
+      var diff = it.diff == null ? "—" : fmt(it.diff);
+      var tol = it.tolerance == null ? "" : " / " + fmt(it.tolerance);
+      var mk = it.mark
+        ? (it.mark.stance === "agree" ? '<span class="mk y">已同意</span>'
+          : it.mark.stance === "dispute" ? '<span class="mk x">有意见</span>'
+          : '<span class="mk h">判不了</span>')
+        : '<span class="mk q">未表态</span>';
+      var cls = "row" + (it.same_source ? " flag" : "");
+      if (S.sel && S.sel.item === it.item && S.sel.cat === it.cat) cls += " on";
+      var line = "实测 " + (it.measured == null ? "—" : it.measured) +
+        "　规划 " + (it.planned == null ? "—" : it.planned) +
+        "　差 " + diff + tol + "　" + V_CN[it.verdict];
+      h += '<div class="' + cls + '" data-i="' + i + '" data-line="' + esc(line) + '">' +
+        '<span class="bd">' + esc(shortBd(it.building)) + "</span>" +
+        '<span class="it" title="' + esc(it.item) + '">' + esc(shortItem(it.item, it.building)) +
+        (it.dup > 1 ? ' <span class="pill a">×' + it.dup + "</span>" : "") + "</span>" +
+        '<span class="nu d">' + esc(diff) + '<span style="color:#8f98a4">' + esc(tol) + "</span></span>" +
+        '<span class="mv" style="text-align:right"><span class="pill ' +
+          (it.verdict === "pass" ? "g" : it.verdict === "fail" ? "r" : "a") + '">' +
+          V_CN[it.verdict] + "</span></span>" + mk + "</div>";
+    });
+    $("#tbl").innerHTML = h;
+    $("#tbl").querySelectorAll(".row").forEach(function (n) {
+      n.onclick = function () { select(S.items[+n.dataset.i]); };
+    });
+    renderInlineDet();
+  }
+
+  function shortBd(b) {
+    if (!b) return "";
+    return b.replace("1号检测车间、2号研发车间", "1#2#车间")
+            .replace(/^(\d+)号/, "$1#").slice(0, 10);
+  }
+  function shortItem(item, b) {
+    var s = String(item || "");
+    if (b && s.indexOf(b + "-") === 0) s = s.slice(b.length + 1);
+    return s;
+  }
+  function fmt(v) {
+    var n = Number(v);
+    if (!isFinite(n)) return String(v);
+    return Math.abs(n) >= 1000 ? n.toFixed(0) : (Math.round(n * 1000) / 1000).toString();
+  }
+  /* 坐标是 "x/y" 两段，一整串塞进小框会从数字中间折行。断在斜杠上才读得懂。 */
+  function twoLine(v) {
+    if (v == null) return "—";
+    return esc(String(v)).replace(/\//g, "<br>");
+  }
+
+  /* ---------------- 汇总：四数永远都在 ---------------- */
+  function renderSum() {
+    var p = 0, f = 0, h = 0, d = 0, x = 0;
+    S.items.forEach(function (it) {
+      if (it.verdict === "pass") p++; else if (it.verdict === "fail") f++; else h++;
+      if (it.mark) { d++; if (it.mark.stance === "dispute") x++; }
+    });
+    $("#sP").textContent = p; $("#sF").textContent = f; $("#sH").textContent = h;
+    $("#sD").textContent = d; $("#sX").textContent = x;
+    var total = S.items.length;
+    $("#sum").querySelector("b.n").textContent = total || "—";
+  }
+
+  /* ---------------- 详情 ---------------- */
+  function select(it) {
+    S.sel = it;
+    document.querySelectorAll(".row").forEach(function (n) {
+      n.classList.toggle("on", n.dataset.i != null && S.items[+n.dataset.i] === it);
+    });
+    renderDet();
+    setBtns(true);
+    $("#hint").innerHTML = it.same_source
+      ? "这一项两侧文件同源，建议按「判不了 · 材料不清」处理"
+      : "选中：" + esc(it.cat_cn) + "　机器判 <b>" + V_CN[it.verdict] + "</b>";
+  }
+
+  function detHtml() {
+    var it = S.sel, m = S.meta || {};
+    if (!it) {
+      return '<div class="box"><div class="none">选中一条检查项，这里显示它当时的数值与机器理由。</div></div>';
+    }
+    var h = "";
+    h += '<div class="box"><div class="h">检查项</div><div class="big">' +
+      esc(it.item ? shortItem(it.item, it.building) : "整条记录") + "</div>" +
+      '<div class="tags">' +
+      '<span class="pill n">' + esc(it.cat_cn) + "</span>" +
+      (it.building ? '<span class="pill n">' + esc(it.building) + "</span>" : "") +
+      '<span class="pill ' + (it.verdict === "pass" ? "g" : it.verdict === "fail" ? "r" : "a") + '">机器 ' +
+        V_CN[it.verdict] + "</span>" +
+      (it.same_source ? '<span class="pill a">两侧同源</span>' : "") +
+      (it.zero_suspect ? '<span class="pill a">整类零差</span>' : "") +
+      "</div>";
+    if (it.measured != null || it.planned != null) {
+      h += '<div class="num">' +
+        '<div><div class="l">实测 / 图面</div><div class="v">' + twoLine(it.measured) + "</div></div>" +
+        '<span class="op">vs</span>' +
+        '<div><div class="l">规划 / 清单</div><div class="v">' + twoLine(it.planned) + "</div></div>" +
+        "</div>";
+      if (it.diff != null) {
+        h += '<div class="kv"><dt>差</dt><dd>' + esc(fmt(it.diff)) + "</dd>" +
+          "<dt>限差</dt><dd>" + esc(it.tolerance == null ? "未给" : fmt(it.tolerance)) + "</dd></div>";
+      }
+    }
+    h += "</div>";
+
+    h += '<div class="box"><div class="h">机器当时的理由</div><div class="say">' +
+      esc(it.remark || "（没有写理由）") + "</div></div>";
+
+    h += '<div class="box"><div class="h">你的表态</div>';
+    if (it.mark) {
+      var mm = it.mark;
+      h += '<div class="mine ' + mm.stance + '">' +
+        (mm.stance === "agree" ? "同意机器结论"
+          : mm.stance === "dispute" ? "有意见 · " + esc(mm.dispute_reason || "")
+          : "判不了 · " + esc(mm.hold_reason || "")) +
+        (mm.note ? "<br>" + esc(mm.note) : "") +
+        '<br><span style="opacity:.75;font-size:10px">' + esc(mm.actor || "") + " · " +
+        esc(mm.created_at || "") + "</span></div>";
+      if (mm.stance === "dispute") h += '<div class="none" style="margin-top:6px">' +
+        "只记了争议，机器结论一个字没改。等图看清楚了再决定要不要改判。</div>";
+    } else {
+      h += '<div class="none">还没表态。</div>';
+    }
+    h += "</div>";
+
+    h += '<div class="box"><div class="h">这条判断记了什么</div><div class="kv">' +
+      "<dt>材料指纹</dt><dd>" + esc(m.material_hash || "") + "</dd>" +
+      "<dt>判据版本</dt><dd>" + esc(m.rule_ver || "") + "</dd>" +
+      "<dt>来源</dt><dd>" + (m.src === "records" ? "飞书记录" : "比对项目 p" + (m.key.split(":")[1] || "")) + "</dd>" +
+      "</div></div>";
+    return h;
+  }
+
+  function renderDet() {
+    $("#det").innerHTML = detHtml();
+    renderInlineDet();
+  }
+
+  /* 窄屏把详情列整列收掉了（.det 是 display:none）。不补一块的话，
+     在飞书侧栏里点检查项，页面上什么都不会变 —— 看着就像点坏了。
+     做法：把同一份详情展开在选中行下面，点哪条都当场看得见数值和机器理由。 */
+  function renderInlineDet() {
+    var old = document.querySelector(".rowdet");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    if (window.innerWidth > 1180 || !S.sel) return;
+    var on = document.querySelector(".row.on"), tbl = $("#tbl");
+    if (!on || !on.parentNode || !tbl || !tbl.contains(on)) return;
+    var d = document.createElement("div");
+    d.className = "rowdet det";
+    d.innerHTML = detHtml();
+    on.parentNode.insertBefore(d, on.nextSibling);
+  }
+
+  function setBtns(on) {
+    ["#bAgree", "#bDispute", "#bHold"].forEach(function (s) { $(s).disabled = !on; });
+  }
+
+  /* ---------------- 表态 ---------------- */
+  function submit(stance, extra) {
+    if (!S.sel || !S.cur) return;
+    var it = S.sel;
+    var body = {
+      src: S.cur.src, key: S.cur.key, item: it.item,
+      stance: stance,
+      dispute_reason: extra && extra.dispute_reason || null,
+      hold_reason: extra && extra.hold_reason || null,
+      my_verdict: extra && extra.my_verdict || null,
+      check_cat: it.cat, building: it.building,
+      rule_ver: (S.meta || {}).rule_ver,
+      material_hash: (S.meta || {}).material_hash,
+      ai_reason: it.remark,
+      shown: {measured: it.measured, planned: it.planned, diff: it.diff, tolerance: it.tolerance},
+      elapsed_ms: Date.now() - S.t0
+    };
+    setBtns(false);
+    api("/api/review/mark", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    }).then(function (d) {
+      it.mark = {
+        stance: stance, dispute_reason: body.dispute_reason, hold_reason: body.hold_reason,
+        actor: "", created_at: new Date().toLocaleString("zh-CN", {hour12: false}),
+        id: d.id
+      };
+      renderList(); renderSum(); renderFilt(); renderDet(); setBtns(true);
+      // 自动跳到下一条没表态的，省一次点击
+      var next = S.items.filter(function (x) { return !x.mark; })[0];
+      if (next) select(next);
+      else $("#hint").innerHTML = "这一份全部表过态了";
+      refreshMatsSoon();
+    }).catch(function (e) {
+      setBtns(true);
+      alert(e.error || e.message || "没存上");
+    });
+  }
+
+  var tmr = null;
+  function refreshMatsSoon() {
+    if (tmr) return;
+    tmr = setTimeout(function () { tmr = null; loadMatsQuiet(); }, 900);
+  }
+  function loadMatsQuiet() {
+    api("/api/review/materials").then(function (d) {
+      $("#cN").textContent = d.compare.length;
+      $("#rN").textContent = d.records.length;
+      var box = $("#mCompare"); box.innerHTML = "";
+      d.compare.forEach(function (m) { box.appendChild(matNode(m)); });
+      var rb = $("#mRecords"); rb.innerHTML = "";
+      d.records.forEach(function (m) { rb.appendChild(matNode(m)); });
+      if (S.cur) markMatOn(S.cur.src, S.cur.key);
+    }).catch(function () {});
+  }
+
+  /* ---------------- 浮层 ---------------- */
+  function openSheet(mode) {
+    var it = S.sel;
+    if (!it) return;
+    S.mode = mode;
+    var isD = mode === "dispute";
+    $("#shT").textContent = isD ? "有意见：是哪一种？" : "判不了：卡在哪？";
+    $("#shD").textContent = isD
+      ? "只记争议，不改机器结论。选一个就存，不用写字。"
+      : "这条现在给不出结论。选一个原因，它会进「待补」清单。";
+    if (isD && it.verdict === "hold") {
+      $("#shD").textContent += "　机器自己也没判出来，请顺手选一下你的结论。";
+    }
+    var h = "";
+    if (isD && it.verdict === "hold") {
+      h += '<div class="mini-lbl">我的结论</div><div class="chips" id="mv">' +
+        '<button class="chip" data-v="pass">通过</button>' +
+        '<button class="chip" data-v="fail">不合格</button></div>' +
+        '<div class="mini-lbl">原因</div>';
+    }
+    h += '<div class="chips" id="mc">';
+    (isD ? S.reasons.dispute : S.reasons.hold).forEach(function (r) {
+      h += '<button class="chip' + (isD ? " red" : "") + '" data-r="' + esc(r) + '">' + esc(r) + "</button>";
+    });
+    h += "</div>";
+    $("#shC").innerHTML = h;
+    $("#sheet").hidden = false;
+
+    var mv = null;
+    var mvBox = $("#mv");
+    if (mvBox) {
+      mvBox.querySelectorAll(".chip").forEach(function (b) {
+        b.onclick = function () {
+          mv = b.dataset.v;
+          mvBox.querySelectorAll(".chip").forEach(function (x) { x.classList.toggle("on", x === b); });
+        };
+      });
+    }
+    $("#shC").querySelectorAll(".chip").forEach(function (b) {
+      b.onclick = function () {
+        var r = b.dataset.r;
+        if (isD && it.verdict === "hold" && !mv) {
+          b.classList.add("on");
+          $("#shD").textContent = "先选上面的「我的结论」，再选原因。";
+          return;
+        }
+        closeSheet();
+        if (isD) submit("dispute", {dispute_reason: r, my_verdict: mv});
+        else submit("hold", {hold_reason: r});
+      };
+    });
+  }
+  function closeSheet() { $("#sheet").hidden = true; S.mode = ""; }
+
+  /* ---------------- 绑定 ---------------- */
+  $("#bAgree").onclick = function () { submit("agree"); };
+  $("#bDispute").onclick = function () { openSheet("dispute"); };
+  $("#bHold").onclick = function () { openSheet("hold"); };
+  $("#shCancel").onclick = closeSheet;
+  $("#sheet").onclick = function (e) { if (e.target === $("#sheet")) closeSheet(); };
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeSheet();
+    if (!S.sel || $("#sheet").hidden === false) return;
+    if (e.key === "1") submit("agree");
+    if (e.key === "2") openSheet("dispute");
+    if (e.key === "3") openSheet("hold");
+  });
+
+  if (window.QC_K) $("#home").href = "/?k=" + encodeURIComponent(window.QC_K);
+
+  api("/api/me").then(function (d) {
+    if (d && d.name) {
+      $("#who").textContent = d.name;
+      $("#who").style.display = "";
+    }
+    // 灰度副本：说清「你点的东西记在副本库」
+    if (d && d.preview) {
+      var b = document.createElement("div");
+      b.className = "prevbar";
+      b.innerHTML = "<b>预览副本</b><span>这里的表态只写副本库，不影响正式账本；" +
+                    "看完没问题再去正式站做。</span>";
+      var hd = document.querySelector(".hd");
+      if (hd && hd.parentNode) hd.parentNode.insertBefore(b, hd.nextSibling);
+    }
+  }).catch(function () {});
+
+  loadMats();
+})();
+</script>
+</body>
+</html>

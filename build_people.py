@@ -30,9 +30,8 @@ BASE_DIR = Path(__file__).resolve().parent
 OUT = BASE_DIR / "data" / "people.json"
 LOCAL = BASE_DIR / "data" / "people.local.json"
 
-# 本仓库不含任何真实 base / 表 ID，必须由环境变量传入
-BASE_TOKEN = os.getenv("QC_BASE_TOKEN", "")
-TABLE_ID = os.getenv("QC_TASK_TABLE_ID", "")
+BASE_TOKEN = os.getenv("QC_BASE_TOKEN", "QQn3bB0yGacm5hsROy9cmRLVnec")
+TABLE_ID = os.getenv("QC_TASK_TABLE_ID", "tblE8IpW9xctP8v9")
 # 任务表上的人员类字段：项目经理 / 任务参与人员 / 质检上传人员 / 本部员工业务辅助判断 / 创建人
 FIELDS = ["fldqLI158Q", "fldDghgSn6", "fldt2COH6G", "fldblPPJTB", "fldSakntfW"]
 PAGE = 200
@@ -80,12 +79,6 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=5000, help="最多扫描多少条记录")
     args = ap.parse_args()
-
-    if not BASE_TOKEN or not TABLE_ID:
-        print("缺少 QC_BASE_TOKEN / QC_TASK_TABLE_ID 环境变量。\n"
-              "本脚本需要指向一个真实的多维表格，仓库里不内置任何 base / 表 ID。\n"
-              "例：QC_BASE_TOKEN=appxxxx QC_TASK_TABLE_ID=tblxxxx python build_people.py")
-        return 2
 
     cli = find_cli()
     if not cli:

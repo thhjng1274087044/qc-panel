@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>成果水印</title>
+<style>
+:root{
+  --blue:#1c5294;--ink:#1f2329;--ink2:#5a6472;--ink3:#8f98a4;
+  --line:#e8eaed;--line2:#d8dce1;--bg:#f5f7fa;--bg2:#fafbfc;
+  --green:#2e7d46;--red:#c0392b;--amber:#b8860b;--amberL:#fdf6e3;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);
+  background:var(--bg);display:flex;flex-direction:column}
+.hd{height:48px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 20px;background:#fff;
+  border-bottom:1px solid var(--line);z-index:5}
+.hd .ic{width:20px;height:20px;border-radius:5px;background:var(--blue);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.hd .ttl{font-weight:600;font-size:14px}
+.hd .sp{flex:1}
+.hd a{color:var(--blue);text-decoration:none;font-size:12.5px}
+.hd a:hover{text-decoration:underline}
+.hd .who{font-size:12px;color:var(--ink3)}
+.bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:7px 20px;background:var(--bg2);border-bottom:1px solid var(--line);
+  font-size:11.5px;color:var(--ink2)}
+.bar .dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:0 0 auto}
+.bar .dot.ok{background:var(--green)}.bar .dot.bad{background:var(--red)}.bar .dot.wait{background:var(--amber)}
+.bar .sp{flex:1}
+.btn{font:inherit;font-size:12px;padding:3px 12px;border-radius:6px;border:1px solid var(--line2);
+  background:#fff;color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+.btn:hover{border-color:#b9cdf0;color:var(--blue)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.pri:hover{background:#17457e;color:#fff}
+main{flex:1 1 auto;min-height:0;overflow:auto}
+.card{max-width:620px;margin:7vh auto 0;background:#fff;border:1px solid var(--line);
+  border-radius:10px;padding:22px 24px}
+.card h2{margin:0 0 10px;font-size:15px}
+.card p{margin:0 0 10px;color:var(--ink2);font-size:12.5px;line-height:1.75}
+.card .why{background:var(--amberL);border:1px solid #f0e2b6;border-radius:8px;
+  padding:10px 12px;margin:12px 0;font-size:12px;color:#7a5b06;line-height:1.75}
+.card .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+.card .diag{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:14px;
+  padding-top:12px;border-top:1px dashed var(--line2);line-height:1.7}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="ic">印</div><div class="ttl">成果水印</div>
+  <div class="sp"></div>
+  <div class="who" id="who"></div>
+  <a data-home>← 返回首页</a>
+  <a href="/logout">退出</a>
+</div>
+
+<div class="bar">
+  <span class="dot wait" id="dot"></span>
+  <span id="state">正在连接水印服务…</span>
+  <span id="meta"></span>
+  <span class="sp"></span>
+  <button class="btn" id="again">重试</button>
+  <a class="btn pri" id="open" href="#" target="_blank" rel="noopener" style="display:none">打开原程序</a>
+</div>
+
+<main>
+  <div class="card" id="card" style="display:none">
+    <h2 id="title">水印服务没有响应</h2>
+    <p id="lead"></p>
+    <div class="why" id="why"></div>
+    <p>水印是不可外传的一环，程序只在它自己的机器上跑，这里不做复制、也不中转文件。</p>
+    <div class="row">
+      <a class="btn pri" id="cardOpen" href="#" target="_blank" rel="noopener">打开原程序</a>
+      <button class="btn" id="cardAgain">重试</button>
+    </div>
+    <div class="diag" id="diag"></div>
+  </div>
+</main>
+
+<script src="/static/auth.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+  var dot = document.getElementById("dot");
+  var stateEl = document.getElementById("state");
+  var metaEl = document.getElementById("meta");
+  var card = document.getElementById("card");
+  var openBtn = document.getElementById("open");
+  var cardOpen = document.getElementById("cardOpen");
+  var busy = false;
+
+  // 带 ?stay=1 进来的：只做连通性检查，不自动跳走（排障用）
+  var STAY = /(?:^|[?&])stay=1(?:&|$)/.test(location.search);
+
+  fetch("/api/me").then(function (r) { return r.json(); }).then(function (r) {
+    if (r && r.ok) document.getElementById("who").textContent = r.name + (r.master ? "（管理通道）" : "");
+  }).catch(function () {});
+
+  function setDot(cls) { dot.className = "dot " + cls; }
+
+  function fail(title, lead, why, url, diag) {
+    card.style.display = "";
+    document.getElementById("title").textContent = title;
+    document.getElementById("lead").textContent = lead;
+    document.getElementById("why").innerHTML = why || "";
+    document.getElementById("why").style.display = why ? "" : "none";
+    var dg = document.getElementById("diag");
+    dg.textContent = diag || "";
+    dg.style.display = diag ? "" : "none";
+    if (url) {
+      openBtn.href = url; openBtn.style.display = "";
+      cardOpen.href = url; cardOpen.style.display = "";
+    } else {
+      cardOpen.style.display = "none";
+    }
+  }
+
+  function okState(ver, ms, url) {
+    setDot("ok");
+    stateEl.textContent = "已连接";
+    metaEl.textContent = "版本 " + (ver || "未知") + " · 探测 " + ms + " ms";
+    openBtn.href = url; openBtn.style.display = "";
+    // 正常路径下路由已经 302 过去了，走到这里基本只有两种可能：
+    // 带 ?stay=1 排障，或浏览器把跳转拦了。都补一次顶层跳转。
+    if (!STAY) { location.replace(url); return; }
+    // 排障态不跳走：卡片要填上，否则主区域一片空白，看着像页面坏了
+    fail("已连接水印服务",
+         "水印程序在内网另一台机器上，已确认可以访问。点「打开原程序」过去。",
+         "", url, "");
+  }
+
+  function probe() {
+    if (busy) return;
+    busy = true;
+    setDot("wait");
+    stateEl.textContent = "正在连接水印服务…";
+    metaEl.textContent = "";
+    document.getElementById("again").disabled = true;
+
+    fetch("/api/watermark/conf").then(function (r) { return r.json(); }).then(function (c) {
+      busy = false;
+      document.getElementById("again").disabled = false;
+      if (!c || !c.ok) {
+        setDot("bad");
+        stateEl.textContent = "取不到配置";
+        fail("取不到配置", "本服务没有返回水印配置，刷新页面重试。", "", "", "");
+        return;
+      }
+      if (c.reachable) { okState(c.version, c.ms, c.url); return; }
+
+      setDot("bad");
+      stateEl.textContent = "水印服务连不上";
+      metaEl.textContent = "探测 " + c.ms + " ms";
+      fail("水印服务没有响应",
+        "服务端替你去连过水印程序，没有连上。",
+        "可能的原因：那台机器关机／水印程序没启动／不在同一个内网。<br>探测结果：<b>" +
+          (c.err || "超时") + "</b>，用了 " + c.ms + " ms（上限 " + Math.round(c.timeout) + " 秒）。",
+        c.url,
+        "运维排查用：" + c.url + "　（此地址需在内网可达）");
+    }).catch(function () {
+      busy = false;
+      document.getElementById("again").disabled = false;
+      setDot("bad");
+      stateEl.textContent = "请求失败";
+      fail("请求失败", "本服务没回话，刷新页面重试。", "", "", "");
+    });
+  }
+
+  document.getElementById("again").onclick = probe;
+  document.getElementById("cardAgain").onclick = probe;
+  probe();
+})();
+</script>
+<script src="/static/nav.js?v=2"></script>
+</body>
+</html>

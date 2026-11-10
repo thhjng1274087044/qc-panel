@@ -9,10 +9,10 @@ import sys
 import requests
 from playwright.sync_api import sync_playwright
 
-BASE = "http://127.0.0.1:8776"
-TOKEN = os.environ.get("QC_TOKEN") or ""
+BASE = os.environ.get("QC_BASE") or "http://127.0.0.1:8776"
+TOKEN = os.environ.get("QC_TOKEN") or "qc-74f3a91c2b6e"
 HDR = {"X-QC-Token": TOKEN}
-RID = os.environ.get("QC_TEST_RID", "recDEMOa1b2c3d4")   # 需一条 AI 原判为「不合格」的记录
+RID = "reczz28LZrntXm9r"          # 这条被临时改成 ai=不合格，用来测改判
 
 ok = fail = 0
 
@@ -33,7 +33,7 @@ def main():
         pg = b.new_page(viewport={"width": 1440, "height": 900})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)[:200]))
-        pg.goto(BASE + "/?k=" + TOKEN, wait_until="domcontentloaded")
+        pg.goto(BASE + "/host?k=" + TOKEN, wait_until="domcontentloaded")
         pg.wait_for_timeout(4500)
         fl = pg.frame(url=lambda u: "/panel" in u)
         if not fl:

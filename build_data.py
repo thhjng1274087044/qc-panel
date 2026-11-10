@@ -11,8 +11,8 @@ import csv
 import json
 import os
 
-BATCH = os.environ.get("QC_BATCH_DIR", "")
-STREAM = os.environ.get("QC_STREAM_CSV", "")
+BATCH = r"E:\质检skill\证据截图_20261105_全量88"
+STREAM = r"E:\质检skill\_pick\stream_结论.csv"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "records.json")
 
 TONE = {

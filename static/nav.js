@@ -8,13 +8,22 @@
  *   留在 iframe 里能回得去，靠的是「首页也认票据」：
  *   `/?k=<票据>` 会让首页带着票据去问 /api/me，不依赖被拦掉的第三方 cookie。
  *
+ * 站内互跳同理：`<a data-nav="/review">核对台</a>`，票据照样带走。
+ *   不要在模板里写 href="/review" —— 飞书 iframe 里没票据会被弹回登录。
+ *
  * 样式不动，按钮长什么样由各页自己的 .hd a 决定。
  */
 (function () {
   var k = '';
   try { k = new URLSearchParams(location.search).get('k') || ''; } catch (e) {}
-  var href = '/' + (k ? '?k=' + encodeURIComponent(k) : '');
+  var q = k ? '?k=' + encodeURIComponent(k) : '';
   document.querySelectorAll('[data-home]').forEach(function (a) {
-    a.setAttribute('href', href);
+    a.setAttribute('href', '/' + q);
+  });
+  document.querySelectorAll('[data-nav]').forEach(function (a) {
+    var p = a.getAttribute('data-nav') || '/';
+    // data-nav 里可以自带查询串（如 /review?rec=xxx），票据接在后面
+    if (!k) { a.setAttribute('href', p); return; }
+    a.setAttribute('href', p + (p.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(k));
   });
 })();

@@ -30,6 +30,27 @@ body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:
 .hd .st i{width:6px;height:6px;border-radius:50%;background:var(--ink3);display:block}
 .hd .st.ok i{background:var(--green)} .hd .st.ok{color:var(--green)}
 .hd .st.wn i{background:var(--amber)} .hd .st.wn{color:var(--amber)}
+/* 回首页：面板常被塞在飞书侧栏里，宽度只有三四百。
+   做成浅蓝底的实心按钮 —— 白底细边在 38px 顶栏里太容易被当成文字忽略。 */
+.hd .home{flex:0 0 auto;font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;
+  white-space:nowrap;background:var(--blueL);border:1px solid #c3d5f0;border-radius:4px;
+  padding:0 6px;line-height:17px}
+.hd .home:hover{background:#dbe8f9;border-color:#a9c3e8}
+/* 去核对台：面板只管「整条结论」，逐项在那边做。
+   做成纯文字链 —— 340px 侧栏里塞两个实心按钮会把顶栏挤换行。 */
+.hd .nav2{flex:0 0 auto;font-size:11px;color:var(--blue);text-decoration:none;
+  white-space:nowrap;padding:0 1px;border-bottom:1px solid #c3d5f0;line-height:15px}
+.hd .nav2:hover{border-bottom-color:var(--blue)}
+
+/* 飞书边栏最窄只给 320px。这个宽度下顶栏四样东西会挤成一条，
+   优先砍标题文字（图标已经表达是哪个模块），状态和两个出口都保留。
+   砍状态会让人看不出「连没连上飞书」，那是排查的第一现场，不能省。 */
+@media(max-width:420px){
+  .hd{gap:6px;padding:0 9px}
+  .hd .ttl{display:none}
+  .hd .who{max-width:64px}
+  .hd .st{font-size:10px}
+}
 
 /* ---------- 绑定条 ---------- */
 .bind{flex:0 0 auto;display:flex;align-items:center;gap:6px;height:28px;padding:0 11px;
@@ -43,6 +64,29 @@ body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:
 .bind.drift{background:var(--redL);border-bottom-color:#f2d4d4}
 .bind.drift .bic{background:var(--red)} .bind.drift .rid b{color:var(--red)} .bind.drift .aud{color:var(--red)}
 .bind.none{background:var(--bg2)} .bind.none .bic{background:var(--ink3)}
+
+/* 同步心跳：证明「还在读选中」，并当场暴露卡在哪一步。
+   正常时极淡不抢注意力；读到的 recordId 连续不变、间隔变长、读超时都变色。 */
+.beat{flex:0 0 auto;display:flex;align-items:center;gap:5px;height:16px;padding:0 11px;
+  font-family:var(--mono);font-size:9.5px;line-height:16px;color:var(--ink3);
+  background:#fcfcfd;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;
+  overflow:hidden;white-space:nowrap;opacity:.72}
+.beat:hover{opacity:1;background:#f7f8fa}
+.beat.off{display:none}
+.beat b{font-weight:600;color:var(--ink2)}
+.beat.same{color:var(--amber)} .beat.same b{color:var(--amber)}
+.beat.bad{background:var(--redL);color:var(--red)} .beat.bad b{color:var(--red)}
+.beat .x{margin-left:auto;color:var(--ink3);padding:0 2px}
+.beat .x:hover{color:var(--ink2)}
+.beatlog{flex:0 0 auto;max-height:80px;overflow:auto;padding:4px 11px;background:#f7f8fa;
+  border-bottom:1px solid var(--line);font-family:var(--mono);font-size:9.5px;
+  line-height:1.75;color:var(--ink3);white-space:nowrap}
+.beatlog b{font-weight:600;color:var(--ink2)}
+
+/* 核对浮层里的「逐项核对」出口 —— 面板只下整条结论，明细在核对台 */
+.goitem{display:inline-block;font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;
+  background:var(--blueL);border:1px solid #c3d5f0;border-radius:4px;padding:2px 7px;line-height:16px}
+.goitem:hover{background:#dbe8f9;border-color:#a9c3e8}
 
 /* ---------- 主体 ---------- */
 .body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 0 8px}
@@ -204,6 +248,8 @@ body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:
   <div class="sp"></div>
   <div class="who" id="hdWho" style="display:none"></div>
   <div class="st" id="hdSt"><i></i><span>连接中</span></div>
+  <a class="nav2" data-nav="/review">核对台</a>
+  <a class="home" data-home>← 返回首页</a>
 </div>
 
 <div class="bind none" id="bind">
@@ -211,6 +257,11 @@ body{font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:
   <div class="rid" id="bindRid">等待左侧选中记录</div>
   <div class="aud" id="auditBtn">核对</div>
 </div>
+
+<div class="beat" id="beat" title="点开看最近 12 轮读选中的明细">
+  <span id="beatTxt">⟳ 跟随启动中…</span><span class="x" id="beatX">×</span>
+</div>
+<div class="beatlog" id="beatLog" style="display:none"></div>
 
 <div class="body" id="body">
   <div class="wrap">
@@ -441,21 +492,99 @@ async function resolveName(uid){
   }catch(e){ return ''; }
 }
 
-async function getUserSafe(){
+async function rawUserId(ms){
   if(!bridge) return null;
+  const t = ms || 2500;
   const call = async (fn)=>{
     try{
       if(typeof bridge[fn] !== 'function') return null;
-      const v = await withTimeout(bridge[fn](), 2500, fn);
+      const v = await withTimeout(bridge[fn](), t, fn);
       return (typeof v === 'string' && v) ? v : null;
     }catch(e){ return null; }
   };
   const id = await call('getUserId');
-  const baseId = id ? null : await call('getBaseUserId');
-  const uid = id || baseId;
-  if(!uid) return null;
-  const name = await resolveName(uid);
-  return { id: uid, name, byBase: !id, label: name || whoLabel(uid) };
+  if(id) return { id, byBase:false };
+  const base = await call('getBaseUserId');
+  return base ? { id: base, byBase:true } : null;
+}
+
+async function getUserSafe(){
+  const r = await rawUserId();
+  if(!r) return null;
+  const name = await resolveName(r.id);
+  return { id: r.id, name, byBase: r.byBase, label: name || whoLabel(r.id) };
+}
+
+/* 地址里还带着主口令时，所有人权限相同、也认不出人 —— 这条常被忽略，
+   因为它「能用」，只是按人授权根本没生效。给一条窄横幅，改对了自动消失。 */
+async function warnMaster(){
+  if(!QC_K) return;
+  try{
+    const j = await (await apiFetch('/api/me')).json();
+    if(!j || !j.master) return;
+    const b = document.createElement('div');
+    b.id = 'masterWarn';
+    b.style.cssText = 'position:sticky;top:0;z-index:50;background:#fdf6e3;color:#8a6d3b;' +
+      'font-size:11.5px;line-height:1.5;padding:5px 10px;border-bottom:1px solid #f0e2bf';
+    b.textContent = '主口令通道：所有人权限相同，也认不出人。把飞书里的地址去掉 ?k= 即按人授权。';
+    document.body.insertBefore(b, document.body.firstChild);
+  }catch(e){}
+}
+
+/* ---- 认人：飞书里零输入 ----
+ * 管理员发的就是 /panel（不带任何凭据）。这时先向宿主要 open_id，POST 给服务端换票据，
+ * 再带 ?k=<票据> 重进自己。所以「打开就用」和「按人授权」是同一套东西，不靠账号口令。
+ * 认不出 / 没开通就停在说明页，不再往下拉数据 —— 否则满屏 401，人会以为是系统坏了。
+ */
+function identBlock(title, detail, oid){
+  let d = document.getElementById('idBlock');
+  if(!d){
+    d = document.createElement('div');
+    d.id = 'idBlock';
+    d.style.cssText = 'position:fixed;inset:0;z-index:99;background:#fff;display:flex;' +
+      'align-items:center;justify-content:center;padding:24px;text-align:center;' +
+      'font:13.5px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2329';
+    document.body.appendChild(d);
+  }
+  d.innerHTML = `<div style="max-width:460px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">${title}</div>
+      <div style="color:#5a6472;font-size:13px;white-space:pre-wrap">${detail}</div>
+      ${oid ? `<div style="margin-top:14px;font:11.5px/1.6 Consolas,monospace;color:#8f98a4;word-break:break-all">飞书 id：${oid}</div>` : ''}
+      <div style="margin-top:18px;font-size:12px;color:#8f98a4">开通后关掉重开这个面板即可，不用输任何口令。</div>
+    </div>`;
+}
+
+async function bootIdentity(){
+  if(QC_K) return true;                       // 已经带票据（或主口令），照旧
+  identBlock('正在确认身份…', '正在从飞书读取当前登录人，不用输入任何东西。');
+  const r = await rawUserId(1200);            // 非飞书环境会等超时，别让人对着空白页
+  if(!r){
+    identBlock('请在飞书里打开这个面板',
+      '在飞书多维表格里打开扩展会自动认人，不需要账号口令。\n浏览器直接访问认不出人（没有飞书身份）。');
+    return false;
+  }
+  try{
+    const resp = await fetch(HOST + '/api/ident', {
+      method:'POST', cache:'no-store',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({oid: r.id, name: ''})
+    });
+    const j = await resp.json().catch(()=>({}));
+    if(resp.ok && j.ok && j.ticket){
+      const u = new URL(location.href);
+      u.searchParams.set('k', j.ticket);
+      location.replace(u.toString());
+      return false;
+    }
+    identBlock(j.pending ? '已提交开通申请' : '这次识别没通过',
+      (j.error || '服务端拒绝了这次识别') +
+      (j.pending ? '\n管理员在「账号与授权」里勾一下模块就能进。' : ''),
+      j.oid || r.id);
+    return false;
+  }catch(e){
+    identBlock('连不上服务', String((e && e.message) || e), r.id);
+    return false;
+  }
 }
 
 function actorName(){ return (S.who && S.who.label) || '未知用户'; }
@@ -508,6 +637,7 @@ function setHead(kind, text){
   const el = $('#hdSt');
   el.className = 'st ' + kind;
   el.querySelector('span').textContent = text;
+  el.title = text;   // 窄到只剩圆点、或文字被截时，hover 仍能看到完整状态
 }
 
 /* ---- 绑定条 ---- */
@@ -733,21 +863,215 @@ function renderState(d){
 }
 
 /* ---- 选中跟随 ---- */
-async function tick(first){
-  if(S.guard || S.modal) return;      // 拦截弹窗 / 填写弹窗期间不跟随
-  const s = await getSelectionSafe();
+/* 跟随心跳：即使早退也留痕，否则顶栏会静止在「已绑定」，看不出是卡住还是正常 */
+const PULSE = { n:0, lastSel:null, lastAt:0, frozen:'', miss:0,
+                ms:0, res:'', errMsg:'', same:0, prev:null,
+                lastTryAt:0, lastOkAt:0, log:[],
+                hint:'', evtRid:null, evtAt:0, conflict:0, noEvt:'', evtCount:0,
+                evtNoRid:0 };
+
+/* 宿主不同版本把 recordId 放在不同层级，逐个探；只认字符串，
+   避免把 {id:...} 这类对象当成 recordId 传下去（会拼出假的取数键）。 */
+function pickRid(ev){
+  if(!ev) return null;
+  const d = ev.data || {};
+  const cand = [
+    ev.recordId, d.recordId,
+    (d.data && d.data.recordId), (ev.payload && ev.payload.recordId),
+    ev.recordIds && ev.recordIds[0], d.recordIds && d.recordIds[0],
+    (d.data && d.data.recordIds && d.data.recordIds[0])
+  ];
+  for(const c of cand) if(typeof c === 'string' && c) return c;
+  return null;
+}
+
+function _hms(t){
+  if(!t) return '—';
+  const d = new Date(t);
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+function _ago(t){
+  if(!t) return '—';
+  const s = Math.round((Date.now() - t) / 1000);
+  return s < 1 ? '刚刚' : s + 's 前';
+}
+function beatPush(r){
+  PULSE.log.push(r);
+  if(PULSE.log.length > 12) PULSE.log.shift();
+}
+/* 这一条只回答一个问题：面板还在读「左侧选中」吗？读到的是新记录吗？ */
+function beatPaint(){
+  const el = document.getElementById('beat');
+  if(!el) return;
+  const txt = document.getElementById('beatTxt');
+  if(!txt) return;
+  let cls = 'beat', s = '';
+  const stalled = PULSE.lastTryAt && (Date.now() - PULSE.lastTryAt > 6500);
+
+  if(stalled){
+    cls += ' bad';
+    s = '✕ 心跳停了：最后尝试 ' + _hms(PULSE.lastTryAt) + '（已 ' +
+        Math.round((Date.now() - PULSE.lastTryAt) / 1000) + 's 无动作）';
+  }else if(PULSE.frozen){
+    cls += ' same';
+    s = '⏸ 跟随暂停：' + PULSE.frozen + ' · 第 ' + PULSE.n + ' 轮';
+  }else if(PULSE.res === 'err'){
+    cls += ' bad';
+    s = '⚠ 读选中失败：' + (PULSE.errMsg || '未知') + ' · 上次成功 ' + _ago(PULSE.lastOkAt);
+  }else if(PULSE.res === 'nobase'){
+    cls += ' bad';
+    s = '⚠ SDK 没给出 base：' + (PULSE.errMsg || '') + ' · 第 ' + PULSE.n + ' 轮';
+  }else if(!PULSE.lastAt){
+    s = '⟳ 等待第一轮读取…（第 ' + PULSE.n + ' 轮）';
+  }else if(!PULSE.lastSel){
+    s = '⟳ ' + _ago(PULSE.lastAt) + ' · 左侧没有选中记录';
+  }else{
+    // 「多少秒之前」放最前：340px 侧栏会截断尾巴，而这一项正是判断「停没停」的关键
+    s = '⟳ ' + _ago(PULSE.lastAt) + ' · ' +
+        PULSE.lastSel.slice(0, 4) + '…' + PULSE.lastSel.slice(-4) +
+        ' · 读 ' + PULSE.ms + 'ms';
+    // 同一条是常态，不变色，只在大数时提一句，免得被当成告警
+    if(PULSE.same >= 5) s += ' · 同一条×' + (PULSE.same + 1);
+  }
+  el.className = cls;
+  txt.textContent = s;
+}
+/* 每秒重绘一次：光看「多少秒之前」就能判断还活着，还是已经停了 */
+setInterval(beatPaint, 1000);
+
+function beatToggle(){
+  const box = document.getElementById('beatLog');
+  if(!box) return;
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  let head;
+  if(PULSE.noEvt){
+    head = '<div style="color:#a2660a">切行事件：' + esc(PULSE.noEvt) + ' → 只能靠每 1.2 秒读一次</div>';
+  }else if(!PULSE.evtCount){
+    head = PULSE.n < 10
+      ? '<div>切行事件：已注册，等待首次事件（第 ' + PULSE.n + ' 轮）</div>'
+      : '<div style="color:#a2660a">切行事件：注册没报错，但跑了 ' + PULSE.n +
+        " 轮一次都没收到 → 实际靠轮询兜底（点行后最多慢 1.2 秒）</div>";
+  }else{
+    head = '<div style="color:#1f7a45">切行事件：收到 ' + PULSE.evtCount + ' 次，点行应立刻生效</div>';
+  }
+  if(PULSE.evtNoRid){
+    head += '<div style="color:#a2660a">其中 ' + PULSE.evtNoRid +
+            ' 次报文里取不到 recordId（形状不认）→ 那几次只能等轮询补</div>';
+  }
+  if(PULSE.conflict){
+    head += '<div style="color:#a2660a">轮询读到旧值 ' + PULSE.conflict +
+            ' 次（已按事件值纠正，没有再翻回去）</div>';
+  }
+  box.innerHTML = head + (PULSE.log.length
+    ? PULSE.log.slice().reverse().map(r =>
+        '<div>' + _hms(r.t) + '  <b>' + (r.rid ? r.rid.slice(0, 4) + '…' + r.rid.slice(-4) : '无') +
+        '</b>  ' + r.ms + 'ms  ' + esc(r.res) +
+        (r.note ? '  ' + esc(r.note) : '') + '</div>').join('')
+    : '<div>还没有记录。若左侧已点过记录而这里始终为空，说明读选中一次都没成功。</div>');
+}
+
+async function tick(first, hint){
+  PULSE.n++;
+  const t0 = Date.now();
+  PULSE.lastTryAt = t0;
+  PULSE.hint = hint || '';
+  if(hint){ PULSE.evtRid = hint; PULSE.evtAt = t0; }
+  try{
+    await tickOnce(first, hint);
+  }catch(e){
+    PULSE.res = 'err';
+    PULSE.errMsg = (e && e.message) || String(e);
+  }finally{
+    PULSE.ms = Date.now() - t0;
+    beatPaint();
+    pulseSend();
+  }
+}
+
+/* 把心跳推给服务端：面板在飞书 iframe 里出的问题，服务端肉眼看不见，
+   只能靠人念顶栏。改成自动上报，事后直接查「它读到了什么」。
+   节流：4 秒内且状态没变就不推，正常浏览时几乎不产生流量。 */
+let _pulseAt = 0, _pulseSig = '';
+function pulseSend(){
+  const sig = [PULSE.res, PULSE.lastSel, PULSE.frozen, PULSE.evtCount, PULSE.errMsg].join('|');
+  const now = Date.now();
+  if(now - _pulseAt < 4000 && sig === _pulseSig) return;
+  _pulseAt = now; _pulseSig = sig;
+  try{
+    apiFetch('/api/pulse', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        n: PULSE.n, res: PULSE.res, sel: PULSE.lastSel, ms: PULSE.ms,
+        same: PULSE.same, frozen: PULSE.frozen, evt: PULSE.evtCount,
+        noEvt: PULSE.noEvt, sdk: sdkFrom, locked: S.locked, err: PULSE.errMsg
+      })
+    }).catch(()=>{});
+  }catch(e){}
+}
+
+async function tickOnce(first, hint){
+  // 冻结判断实时化：不再依赖 S.modal 这个只在 openModal/closeModal 时刷新的缓存值，
+  // 否则任何绕过那两个函数的遮罩开关（如 #maskAudit）都会让它永远停在 true。
+  const maskOn = document.querySelector('.mask.on');
+  const frozen = S.guard ? '拦截弹窗未关' : (maskOn ? '填写弹窗未关' : '');
+  if(frozen){
+    PULSE.frozen = frozen;
+    PULSE.miss++;
+    PULSE.res = 'paused';
+    beatPush({ t: Date.now(), rid: null, ms: 0, res: '暂停', note: frozen });
+    // 连续 5 次（约 6 秒）还冻着，把原因摆到顶栏，免得人以为面板坏了
+    if(PULSE.miss === 5 && !S.guard) setHead('wn', '跟随暂停：' + frozen);
+    return;
+  }
+  const wasFrozen = !!PULSE.frozen;
+  PULSE.frozen = '';
+  PULSE.miss = 0;
+  // hint 来自 onSelectionChange 事件：宿主主动推的 recordId 比轮询到的更新，
+  // 官方文档说明 getSelection 在扩展环境下部分字段可能为 null，不能只信它。
+  let s;
+  if(hint){ s = { recordId: hint }; }
+  else { s = await getSelectionSafe(); }
 
   if(s && s.__error){
+    PULSE.res = 'err';
+    PULSE.errMsg = s.__error;
+    beatPush({ t: Date.now(), rid: null, ms: Date.now() - PULSE.lastTryAt,
+               res: '超时/失败', note: s.__error });
     setHead('wn', '宿主未应答');
     if(first) showEmpty('拿不到选中记录：' + s.__error);
     return;
   }
   if(!s){
+    PULSE.res = 'nobase';
+    PULSE.errMsg = 'bitable=' + (!!bitable) + ' base=' + !!(bitable && bitable.base) + ' from=' + sdkFrom;
+    beatPush({ t: Date.now(), rid: null, ms: Date.now() - PULSE.lastTryAt,
+               res: '无 SDK', note: PULSE.errMsg });
     setHead('', sdkFrom === 'none' ? 'SDK 未加载' : '连接中');
     if(first) showEmpty('SDK 未加载：' + sdkFrom);
     return;
   }
-  const rid = s.recordId;
+  PULSE.res = hint ? 'event' : 'ok';
+  PULSE.lastOkAt = Date.now();
+  let rid = s.recordId;
+  let lag = false;
+  // 事件刚推过值、轮询却读出另一个：以事件为准，否则下一轮会把刚切好的记录又翻回去
+  if(!hint && PULSE.evtRid && rid !== PULSE.evtRid &&
+     Date.now() - PULSE.evtAt < 8000){
+    rid = PULSE.evtRid;
+    lag = true;
+    PULSE.conflict++;
+  }
+  PULSE.lastSel = rid || null;
+  PULSE.lastAt = Date.now();
+  // 同一个 recordId 连续读到多少次 —— 点左表却没变时，这个数字直接说明「宿主没给新值」
+  if(rid && rid === PULSE.prev) PULSE.same++;
+  else { PULSE.same = 0; PULSE.prev = rid || null; }
+  beatPush({ t: PULSE.lastAt, rid: rid || null, ms: Date.now() - PULSE.lastTryAt,
+             res: hint ? '事件' : (lag ? '轮询(滞后)' : '轮询'),
+             note: (rid && PULSE.same >= 2) ? '同一条 ×' + (PULSE.same + 1) : '' });
   if(!rid){
     setBind('none');
     showEmpty('请在左侧点选一条记录');
@@ -760,6 +1084,8 @@ async function tick(first){
     S.drift = false;
     setBind('ok', rid, '第 ' + ((S.rec && S.rec.index) || '?') + ' 条');
     setHead('ok', '已绑定');
+  }else if(wasFrozen){
+    setHead('ok', '已绑定');     // 弹窗关掉后把顶栏从「跟随暂停」恢复
   }
 }
 
@@ -1153,9 +1479,19 @@ $('#auditBtn').addEventListener('click', async ()=>{
     row('回读当前环节', rec.stage, rec.stage ? true : null),
     row('证据是否挂载', rec.file_token ? '已挂载 ' + rec.file_token.slice(0,10) + '…' : (rec.img ? '有图未回传' : '无'), rec.file_token ? true : null),
     row('材料指纹', rec.material_hash, null),
-    row('判据版本', rec.rule_ver, null)
+    row('判据版本', rec.rule_ver, null),
+    row('SDK 来源', sdkFrom, null),
+    row('跟随心跳', PULSE.n + ' 次' + (PULSE.frozen ? ' · 暂停（' + PULSE.frozen + '）' : ' · 正常')
+        + (PULSE.lastAt ? ' · 最后 ' + new Date(PULSE.lastAt).toLocaleTimeString('zh-CN') : ' · 未跑过'),
+        PULSE.frozen ? false : true)
   ].join('') + `<div style="font-size:10px;color:var(--ink3);margin-top:8px;line-height:1.5">
-    注意：本屏一律以 recordId 为键，不用任务编号。表内存在同任务号 2 条记录的实例，按任务号取数会串行。</div>`;
+    心跳不涨 = 轮询没跑（页面被挂起）；心跳涨但「左侧当前选中」不变 = 宿主 SDK 没把点击传进来，
+    与面板逻辑无关。本屏一律以 recordId 为键，不用任务编号 —— 表内存在同任务号 2 条记录的实例，按任务号取数会串行。</div>
+  <div style="margin-top:9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <a class="goitem" href="${'/review' + (rid ? '?rec=' + encodeURIComponent(rid) : '') +
+        (QC_K ? (rid ? '&' : '?') + 'k=' + encodeURIComponent(QC_K) : '')}">逐项核对 →</a>
+    <span style="font-size:10px;color:var(--ink3)">整条结论在这里下；检查项一条条过，去核对台</span>
+  </div>`;
   $('#maskAudit').classList.add('on');
 });
 $('#auditClose').addEventListener('click', ()=> $('#maskAudit').classList.remove('on'));
@@ -1187,8 +1523,20 @@ document.addEventListener('keydown', e=>{
 
 /* ---- 启动 ---- */
 (async function boot(){
-  showEmpty('正在连接飞书…');
   await loadSdk();
+
+  // 没带凭据：先用飞书身份换票据（换到会重载本页），认不出就停在说明页
+  if(!QC_K){
+    if(!bitable){
+      showEmpty('SDK 加载失败：' + sdkFrom);
+      setHead('wn', 'SDK 不可用');
+      return;
+    }
+    if(!(await bootIdentity())) return;
+  }
+
+  showEmpty('正在连接飞书…');
+  warnMaster();
 
   if(sdkFrom === '宿主注入') setHead('', '宿主注入 SDK');
   else if(bitable) setHead('', '本地 SDK 就绪');
@@ -1196,6 +1544,21 @@ document.addEventListener('keydown', e=>{
 
   await tick(true);
   setInterval(()=> tick(false), 1200);
+
+  // 心跳条：点一下展开最近 12 轮明细，点 × 永久收起
+  try{
+    const beatEl = $('#beat'), beatX = $('#beatX');
+    if(beatX) beatX.onclick = function(ev){
+      ev.stopPropagation();
+      try{ localStorage.setItem('qc_beat_off', '1'); }catch(e){}
+      beatEl.classList.add('off');
+      const lg = $('#beatLog'); if(lg) lg.style.display = 'none';
+      toast('已隐藏跟随心跳；要再显示：在控制台执行 localStorage.removeItem("qc_beat_off")');
+    };
+    if(beatEl) beatEl.onclick = beatToggle;
+    if(localStorage.getItem('qc_beat_off') === '1') beatEl.classList.add('off');
+  }catch(e){}
+  beatPaint();
 
   // 登录用户：不阻塞首屏，拿到再显示；拿不到就保持隐藏并留「未知用户」
   getUserSafe().then(w=>{ S.who = w; renderWho(); }).catch(()=>{ renderWho(); });
@@ -1206,9 +1569,24 @@ document.addEventListener('keydown', e=>{
     if(wc && wc.ok) S.wb = wc;
   }catch(e){ S.wb = { enabled:false }; }
 
-  // 辅通道：事件到了立刻刷，不必等轮询
+  // 辅通道：事件到了立刻刷，不必等轮询。
+  // 事件里的 recordId 直接当提示传进去——官方文档说明 getSelection 在扩展环境下
+  // 部分字段可能为 null，只信轮询会出现「点了不变」。
   if(bitable && bitable.base && bitable.base.onSelectionChange){
-    try{ bitable.base.onSelectionChange(()=> tick(false)); }catch(e){}
+    try{
+      bitable.base.onSelectionChange(function(ev){
+        PULSE.evtCount++;
+        const rid = pickRid(ev);
+        // 事件确实来了但取不到 recordId：说明宿主换了报文形状。不静默，
+        // 记一笔，并且这一轮不要用 null 当 hint 去覆盖（否则等于没收到事件）。
+        if(!rid){ PULSE.evtNoRid = (PULSE.evtNoRid || 0) + 1; }
+        tick(false, rid);
+      });
+    }catch(e){
+      PULSE.noEvt = '注册失败：' + ((e && e.message) || e);
+    }
+  }else{
+    PULSE.noEvt = '宿主未提供 onSelectionChange';
   }
   // iframe 重新可见时立即校准
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tick(false); });
@@ -1226,9 +1604,14 @@ document.addEventListener('keydown', e=>{
       return (bitable.base.isEditable ? bitable.base.isEditable() : Promise.resolve(true));
     },
     setCell: (fid, rid, val) => getTableSafe().then(t => t.setCellValue(fid, rid, val)),
+    log: () => PULSE.log.slice(),
+    beat: () => ({ n: PULSE.n, ms: PULSE.ms, res: PULSE.res, err: PULSE.errMsg,
+                   same: PULSE.same, prev: PULSE.prev, sel: PULSE.lastSel,
+                   lastAt: PULSE.lastAt, lastTryAt: PULSE.lastTryAt, frozen: PULSE.frozen }),
     ver: () => ({sdkFrom, locked: S.locked, blocked: S.blocked, guard: S.guard})
   };
 })();
 </script>
+<script src="/static/nav.js?v=3"></script>
 </body>
 </html>

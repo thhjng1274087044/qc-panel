@@ -1,7 +1,7 @@
 #!/bin/bash
 # 反复申请 Cloudflare Quick Tunnel，直到真正注册到边缘节点。
 # 只拿到地址不算成功 —— 必须出现 "Registered tunnel connection"。
-cd "$(dirname "$0")" || exit 1
+cd /e/质检skill/_plugin_server || exit 1
 
 for i in $(seq 1 12); do
   LOG=/tmp/cf_$i.log

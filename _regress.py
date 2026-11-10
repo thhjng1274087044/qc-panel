@@ -6,7 +6,7 @@ import sys
 from playwright.sync_api import sync_playwright
 
 BASE = "http://127.0.0.1:8776"
-TOKEN = os.environ.get("QC_TOKEN") or ""
+TOKEN = os.environ.get("QC_TOKEN") or "qc-74f3a91c2b6e"
 ok = fail = 0
 
 
@@ -36,7 +36,7 @@ def main():
         pg = b.new_page(viewport={"width": 1440, "height": 900})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)[:200]))
-        pg.goto(BASE + "/?k=" + TOKEN, wait_until="domcontentloaded")
+        pg.goto(BASE + "/host?k=" + TOKEN, wait_until="domcontentloaded")
         pg.wait_for_timeout(4200)
         fl = pg.frame(url=lambda u: "/panel" in u)
 

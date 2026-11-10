@@ -11,8 +11,7 @@ import os
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get("QC_BASE", "http://127.0.0.1:8776")
-TOKEN = os.environ.get("QC_TOKEN", "")   # 本仓库不带任何口令默认值
-QS = f"?k={TOKEN}" if TOKEN else ""
+TOKEN = os.environ.get("QC_TOKEN", "qc-74f3a91c2b6e")
 
 results: list[tuple[bool, str, str]] = []
 
@@ -32,7 +31,7 @@ def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         pg = browser.new_page(viewport={"width": 1440, "height": 980})
-        pg.goto(f"{BASE}/host{QS}", wait_until="domcontentloaded")
+        pg.goto(f"{BASE}/host?k={TOKEN}", wait_until="domcontentloaded")
         pg.wait_for_timeout(4500)
 
         panel = get_panel(pg)

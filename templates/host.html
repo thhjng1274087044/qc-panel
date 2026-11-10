@@ -125,22 +125,17 @@ td.nm{max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  * 注意：必须回同一个 id，SDK 用 id 索引 pending Promise。
  * ========================================================================== */
 
-/* 占位值：只在本文件的假宿主里用，真宿主由飞书注入，改这里不影响线上 */
-const BASE_ID  = 'appDEMO0000000000000';
-const TABLE_ID = 'tblDEMO0000000000';
-const VIEW_ID  = 'vewDEMO000000000';
+const BASE_ID  = 'QQn3bB0yGacm5hsROy9cmRLVnec';
+const TABLE_ID = 'tblE8IpW9xctP8v9';
+const VIEW_ID  = 'vewDeptAudit';
 
 let rows = [];            // /api/records
+let sel = null;           // 当前选中 recordId
+let fieldId = 'fldtwiy2VU';
 
 /* 假宿主的字段写权限：模拟登录人在该表可写的字段集合。
  * 想验证「只读降级」时，把某个字段从这里去掉即可。 */
 const WRITABLE_SET = new Set(['fldtwiy2VU', 'flduuylUz8', 'fld01QMpX1', 'fldMTrdVhY']);
-
-/* 假宿主的「当前登录人」。真宿主由飞书填，这里用示例 open_id，
- * 写入记录、顶栏姓名、回执都用它，方便核对「写的人就是他」。 */
-const MOCK_USER_ID = 'ou_00000000000000000000000000000001';
-let sel = null;           // 当前选中 recordId
-let fieldId = 'fldtwiy2VU';
 
 const dl = document.getElementById('dl');
 let logs = 0;
@@ -276,7 +271,7 @@ function answer(key, args){
       }
       (window.__mockWrites = window.__mockWrites || []).push({
         field_id: fid, record_id: rid, value: val,
-        by: MOCK_USER_ID, at: Date.now()
+        by: 'ou_39e6d9ad114dc7a6a86f0a467bf217a3', at: Date.now()
       });
       if(fid==='flduuylUz8') target.ai = (val && val[0] && val[0].text) || target.ai;
       if(fid==='fld01QMpX1') target.human_note = (val && val[0] && val[0].text) || '';
@@ -313,9 +308,10 @@ function answer(key, args){
     case 'WidgetView_getType':
       return 1;
 
-    /* 登录用户：真宿主由飞书填充，这里是假宿主的固定值，对应 people.example.json 第一人 */
+    /* 登录用户：真宿主由飞书填充，假宿主给固定值便于本地验证 */
     case 'Bridge_getUserId':
-      return MOCK_USER_ID;
+      // 用真实 open_id，本地才能验证「id → 姓名」这一跳（对应 people.json 里的邵宇航）
+      return 'ou_39e6d9ad114dc7a6a86f0a467bf217a3';
     case 'Bridge_getBaseUserId':
       return 'bumock_5521aa83';
     case 'Bridge_getTenantKey':

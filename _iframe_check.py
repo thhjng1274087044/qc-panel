@@ -13,7 +13,7 @@ HERE = pathlib.Path(__file__).parent
 PROXY_SERVER = os.environ.get("http_proxy") or "http://127.0.0.1:33631"
 
 TARGETS = [
-    ("cloudflared", "http://127.0.0.1:8776/panel"),
+    ("cloudflared", "https://still-wives-salary-joins.trycloudflare.com/panel?k=qc-74f3a91c2b6e"),
 ]
 
 HOST_TPL = """<!doctype html>

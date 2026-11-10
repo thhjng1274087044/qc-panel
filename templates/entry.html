@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>测绘内业工作台</title>
+<style>
+:root{
+  --blue:#1c5294; --blueL:#e8f0fb; --ink:#1f2329; --ink2:#5a6472; --ink3:#8f98a4;
+  --line:#e8eaed; --line2:#d8dce1; --bg:#f5f7fa; --green:#2e7d46; --greenL:#eaf7ee;
+  --red:#c0392b; --amber:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);
+  background:var(--bg);min-height:100vh}
+.hd{height:52px;display:flex;align-items:center;gap:10px;padding:0 22px;background:#fff;border-bottom:1px solid var(--line)}
+.hd .ic{width:22px;height:22px;border-radius:6px;background:var(--blue);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.hd .ttl{font-weight:600;font-size:14.5px}
+.hd .sp{flex:1}
+.hd .who{font-size:12.5px;color:var(--ink3)}
+.hd .who b{color:var(--ink2);font-weight:600}
+.hd a{color:var(--blue);text-decoration:none;font-size:12.5px}
+.hd a:hover{text-decoration:underline}
+main{max-width:940px;margin:0 auto;padding:34px 22px 60px}
+h1{font-size:20px;margin:0 0 4px;font-weight:600}
+.sub{color:var(--ink3);font-size:13px;margin-bottom:22px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 18px 16px;
+  text-decoration:none;color:inherit;display:block;transition:.15s;position:relative}
+.card:hover{border-color:var(--blue);box-shadow:0 2px 12px rgba(28,82,148,.10);transform:translateY(-1px)}
+.card .n{font-size:16px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card .d{font-size:12.5px;color:var(--ink2);line-height:1.65;min-height:40px}
+.card .go{margin-top:12px;font-size:12.5px;color:var(--blue)}
+.card.off{opacity:.55;cursor:not-allowed;background:var(--bg)}
+.card.off:hover{border-color:var(--line);box-shadow:none;transform:none}
+.card.off .go{color:var(--ink3)}
+.tag{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;background:var(--blueL);color:var(--blue)}
+.tag.off{background:#eef0f3;color:var(--ink3)}
+.tag.adm{background:var(--greenL);color:var(--green)}
+.foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.9}
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;width:340px;box-shadow:0 8px 30px rgba(0,0,0,.16)}
+dialog::backdrop{background:rgba(20,25,35,.35)}
+dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px}
+dialog .db{padding:14px 16px}
+dialog label{display:block;font-size:12px;color:var(--ink2);margin:8px 0 4px}
+dialog input{width:100%;padding:7px 9px;border:1px solid var(--line2);border-radius:6px;font:inherit;font-size:13px}
+dialog .df{padding:10px 16px 14px;display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--line2);background:#fff;font:inherit;
+  font-size:13px;cursor:pointer}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.msg{font-size:12px;margin-top:8px;min-height:16px}
+.msg.err{color:var(--red)} .msg.ok{color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="ic">测</div>
+  <div class="ttl">测绘内业工作台</div>
+  <div class="sp"></div>
+  <div class="who">当前：<b id="me">…</b></div>
+  <a href="#" id="pwBtn" style="display:none">改口令</a>
+  <a href="/logout">退出</a>
+</div>
+<main>
+  <h1>选一个模块</h1>
+  <div class="sub" id="sub">只显示你有权限进去的模块。</div>
+  <div class="cards" id="cards"></div>
+  <div class="foot">
+    <div>看不到某个模块 = 还没给你开通它，找管理员勾一下，不用重新登录。</div>
+    <div>认人靠飞书身份：在飞书里打开面板会自动认人，不用输账号口令。</div>
+    <div>进了任何一页，右上角都有「返回首页」，点一下回到这里。</div>
+  </div>
+</main>
+
+<dialog id="pwDlg">
+  <div class="dh">修改口令</div>
+  <div class="db">
+    <label>原口令</label><input type="password" id="oldPw" autocomplete="current-password">
+    <label>新口令（至少 6 位）</label><input type="password" id="newPw" autocomplete="new-password">
+    <div class="msg" id="pwMsg"></div>
+  </div>
+  <div class="df">
+    <button class="btn" id="pwCancel">取消</button>
+    <button class="btn pri" id="pwSave">保存</button>
+  </div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+
+// 首页也可能被「票据」直接打开：从面板点返回首页时，飞书 iframe 里没有 cookie，
+// 只有地址上的 k。带了就一路带上，否则 /api/me 会 401 把人踢去 /login。
+const K = (() => { try { return new URLSearchParams(location.search).get('k') || ''; } catch (e) { return ''; } })();
+
+function card(m){
+  // 只画有权限的（服务端已经滤掉没权限的，这里再挡一道：漏过来也不画成灰卡）
+  const a = document.createElement('a');
+  a.className = 'card';
+  // href 直接用服务端给的：每条链接都已带上它那个模块的票据。
+  // 不要在这里补 k、也不要加 target=_top —— 顶掉顶层窗口就离开飞书界面了。
+  a.href = m.href;
+  // 水印例外：远端是另一台机器上的独立程序，点开就会跳过去（跳转是顶层导航，
+  // 不受混合内容限制）。用新标签，首页留在原地；否则人从水印回来就得按后退。
+  if (m.code === 'watermark') { a.target = '_blank'; a.rel = 'noopener'; }
+  const tag = m.code === 'admin' ? 'tag adm' : 'tag';
+  a.innerHTML = `<div class="n">${m.name}<span class="${tag}">可用</span></div>
+    <div class="d">${m.desc}</div><div class="go">进入 →</div>`;
+  return a;
+}
+
+async function load(){
+  const r = await fetch('/api/me' + (K ? '?k=' + encodeURIComponent(K) : ''))
+    .then(x => x.json()).catch(() => null);
+  if (!r || !r.ok) {
+    // 带票据进来的：票据过期或账号被停用。别把人丢去登录页 ——
+    // 在飞书 iframe 里弹登录页比一句说明更让人懵。
+    if (K) { $('#sub').textContent = '这个链接已失效，或账号已被停用。回飞书重新打开面板即可。'; return; }
+    location.href = '/login'; return;
+  }
+  $('#me').textContent = r.name + (r.master ? '（管理通道）' : '');
+  if (r.has_pw) $('#pwBtn').style.display = '';       // 免密账号没有口令可改，别给空入口
+  const mods = (r.modules || []).filter(m => m.ok);
+  if (!mods.length) $('#sub').textContent = '你的账号还没有任何模块权限，请联系管理员。';
+  const box = $('#cards');
+  box.innerHTML = '';
+  mods.forEach(m => box.appendChild(card(m)));
+}
+load();
+
+$('#pwBtn').onclick = e => { e.preventDefault(); $('#pwMsg').textContent=''; $('#pwDlg').showModal(); };
+$('#pwCancel').onclick = () => $('#pwDlg').close();
+$('#pwSave').onclick = async () => {
+  const m = $('#pwMsg');
+  const r = await fetch('/api/passwd', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({old: $('#oldPw').value, new: $('#newPw').value})}).then(r => r.json());
+  m.textContent = r.ok ? '已改，下次登录用新口令' : (r.error || '失败');
+  m.className = 'msg ' + (r.ok ? 'ok' : 'err');
+  if (r.ok) { $('#oldPw').value = ''; $('#newPw').value = ''; setTimeout(() => $('#pwDlg').close(), 900); }
+};
+</script>
+</body>
+</html>

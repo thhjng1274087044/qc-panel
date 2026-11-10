@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>测绘内业工作台</title>
+<style>
+:root{--blue:#1c5294;--ink:#1f2329;--ink2:#5a6472;--ink3:#8f98a4;--line:#e8eaed;--line2:#d8dce1;--red:#c0392b;--green:#1a7f4b}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);
+  background:linear-gradient(180deg,#f7f9fc,#eef2f7);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.box{width:430px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 26px 20px;
+  box-shadow:0 6px 28px rgba(28,82,148,.08)}
+.logo{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.logo .ic{width:26px;height:26px;border-radius:7px;background:var(--blue);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.logo b{font-size:15px;font-weight:600}
+h1{font-size:18px;margin:14px 0 4px;font-weight:600}
+.sub{font-size:12.5px;color:var(--ink2);margin-bottom:18px}
+
+.way{border:1px solid var(--line);border-radius:9px;padding:13px 14px;margin-bottom:10px;background:#fbfcfe}
+.way .t{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;margin-bottom:4px}
+.way .n{width:18px;height:18px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;
+  display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto}
+.way .d{font-size:12.5px;color:var(--ink2);line-height:1.7}
+.way .u{margin-top:7px;display:flex;gap:6px;align-items:center}
+.way code{flex:1;font:12px/1.5 ui-monospace,Consolas,monospace;background:#eef3f9;border:1px solid #dde6f0;
+  border-radius:6px;padding:6px 8px;color:#22415f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:5px 10px;font:12px/1.5 inherit;
+  color:var(--ink2);cursor:pointer;flex:0 0 auto}
+.cp:hover{border-color:var(--blue);color:var(--blue)}
+.why{margin-top:14px;font-size:12px;color:var(--ink3);line-height:1.8;border-top:1px solid var(--line);padding-top:11px}
+
+details{margin-top:14px;border-top:1px solid var(--line);padding-top:11px}
+summary{font-size:12px;color:var(--ink3);cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"▸ ";font-size:10px}
+details[open] summary:before{content:"▾ "}
+label{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px}
+input{width:100%;padding:8px 10px;border:1px solid var(--line2);border-radius:7px;font:inherit;font-size:13px}
+input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,82,148,.10)}
+button.go{width:100%;margin-top:14px;padding:9px;border:0;border-radius:7px;background:var(--blue);color:#fff;
+  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.go:disabled{opacity:.6;cursor:default}
+.msg{margin-top:9px;font-size:12px;color:var(--red);min-height:16px}
+.ok{color:var(--green)}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo"><div class="ic">测</div><b>测绘内业工作台</b></div>
+  <h1>这个页面不用登录</h1>
+  <div class="sub">你是从浏览器直接打开的，系统认不出你是谁。按下面任一种方式进来即可。</div>
+
+  <div class="way">
+    <div class="t"><span class="n">1</span>在飞书里打开（内业人员用这个）</div>
+    <div class="d">在飞书里打开工作台的插件，系统按你的飞书身份自动认人，不用输任何东西。
+      管理员还没给你开通的话，你会看到“身份未开通”，找他开一次就行。</div>
+    <div class="u"><code id="panelUrl">/panel</code><button class="cp" data-copy="panelUrl">复制</button></div>
+  </div>
+
+  <div class="way">
+    <div class="t"><span class="n">2</span>点管理员发的链接（电脑上用这个）</div>
+    <div class="d">要在电脑上做工程量统计，找管理员要一条属于你的入口链接。<b>点一次就记住 30 天</b>，
+      之后直接打开首页即可，不必重复。</div>
+  </div>
+
+  <div class="why">
+    为什么浏览器要认人：这个站里有两个项目（测绘报告审核、工程量统计），谁能进哪个是按人分配的，
+    所以必须先知道你是谁。飞书能直接告诉服务端你是谁；浏览器没有这个能力，只能靠上面两条路。
+  </div>
+
+  <details>
+    <summary>管理员应急登录（内业人员不用看这里）</summary>
+    <form id="f">
+      <label>账号（姓名）</label>
+      <input id="name" autocomplete="username">
+      <label>口令</label>
+      <input id="pw" type="password" autocomplete="current-password">
+      <button class="go" id="btn" type="submit">登录</button>
+      <div class="msg" id="msg"></div>
+    </form>
+  </details>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+const E = {'1': '账号或口令不对', '2': '这个账号还没开通任何模块，找管理员开通', '3': '登录已过期，请重新登录'};
+const $ = s => document.querySelector(s);
+
+$('#panelUrl').textContent = location.origin + '/panel';
+document.querySelectorAll('.cp').forEach(b => {
+  b.onclick = async () => {
+    const t = $('#' + b.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(t); } catch (e) {}
+    const old = b.textContent; b.textContent = '已复制';
+    setTimeout(() => b.textContent = old, 1200);
+  };
+});
+
+if (q.get('e')) {
+  document.querySelector('details').open = true;
+  $('#msg').textContent = E[q.get('e')] || '';
+}
+
+$('#f').onsubmit = async e => {
+  e.preventDefault();
+  const btn = $('#btn'), msg = $('#msg');
+  btn.disabled = true; btn.textContent = '登录中…'; msg.textContent = '';
+  try {
+    const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name: $('#name').value.trim(), password: $('#pw').value,
+                            next: q.get('next') || '/'})}).then(r => r.json());
+    if (r.ok) { location.href = r.next || '/'; return; }
+    msg.textContent = r.error || '登录失败';
+  } catch (err) {
+    msg.textContent = '连不上服务：' + err;
+  }
+  btn.disabled = false; btn.textContent = '登录';
+};
+</script>
+</body>
+</html>

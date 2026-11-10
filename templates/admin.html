@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>账号与授权</title>
+<style>
+:root{--blue:#1c5294;--blueL:#e8f0fb;--ink:#1f2329;--ink2:#5a6472;--ink3:#8f98a4;
+  --line:#e8eaed;--line2:#d8dce1;--bg:#f5f7fa;--bg2:#fafbfc;--green:#2e7d46;--greenL:#eaf7ee;
+  --red:#c0392b;--redL:#fdeeed;--amber:#b8860b;--mono:"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+.hd{height:48px;display:flex;align-items:center;gap:10px;padding:0 20px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.hd .ic{width:20px;height:20px;border-radius:5px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.hd .ttl{font-weight:600;font-size:14px}.hd .sp{flex:1}
+.hd a{color:var(--blue);text-decoration:none;font-size:12.5px}.hd a:hover{text-decoration:underline}
+.hd .who{font-size:12px;color:var(--ink3)}
+main{max-width:1180px;margin:0 auto;padding:18px 20px 60px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.ph{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.ph b{font-size:13.5px}.ph .sp{flex:1}
+.ph .n{font-size:11.5px;font-weight:600;color:#fff;background:var(--amber);border-radius:9px;padding:0 7px}
+.pb{padding:8px 16px 16px}
+/* 管理表列多，飞书侧栏 420px 放不下：让表格自己横向滚，别把整页撑出滚动条。
+   光加 overflow-x 不够 —— table 是 width:100%，会一直缩到容器宽度，格子被压扁成高行。
+   必须给表格一个 min-width，让它撑开、由外层滚。 */
+.tw{overflow-x:auto}
+.tw table{min-width:920px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{background:var(--bg2);font-weight:600;color:var(--ink2);white-space:nowrap}
+td.c,th.c{text-align:center}
+.nw{white-space:nowrap}
+.acts{display:flex;gap:4px;flex-wrap:wrap}
+.chk{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink2);cursor:pointer;margin-right:10px}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.tag.g{background:var(--greenL);color:var(--green)}.tag.n{background:#eef0f3;color:var(--ink2)}
+.tag.r{background:var(--redL);color:var(--red)}
+.tag.a{background:#fdf6e3;color:var(--amber)}
+.tag.b{background:var(--blueL);color:var(--blue)}
+.btn{padding:4px 9px;border-radius:6px;border:1px solid var(--line2);background:#fff;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.dg{color:var(--red);border-color:#f0cfcf}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:12px 16px 4px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;color:var(--ink2)}
+.field input,.field select{padding:6px 9px;border:1px solid var(--line2);border-radius:6px;font:inherit;font-size:12.5px}
+.field input:not([type="checkbox"]){width:150px}
+/* 勾选框别继承上面那条宽度，否则会撑成 150px 的方框 */
+.chk input[type="checkbox"]{width:auto;margin:0}
+.hint{font-size:11.5px;color:var(--ink3);line-height:1.8;padding:0 16px 14px}
+.msg{font-size:12px;color:var(--green);padding:6px 16px}
+.msg.err{color:var(--red)}
+.mono{font-family:var(--mono);font-size:11px;color:var(--ink3);word-break:break-all}
+.empty{font-size:12px;color:var(--ink3);padding:10px 2px}
+.hide{display:none}
+/* 表格比侧栏宽，操作列贴右边常驻 —— 否则要横滚才能点到按钮 */
+td.op,th.op{position:sticky;right:0;background:#fff;box-shadow:-8px 0 8px -8px rgba(0,0,0,.14)}
+th.op{background:var(--bg2)}
+/* 编辑弹窗 */
+.mask{position:fixed;inset:0;background:rgba(18,22,28,.44);display:flex;align-items:center;
+  justify-content:center;z-index:50;padding:14px}
+/* 必须写在 .mask 之后：两者特异度相同，顺序在后才覆盖得到 display:flex，
+   否则遮罩会一直挂在页面上把点击全吃掉（踩过）。 */
+.mask.hide{display:none}
+.dlg{background:#fff;border-radius:12px;width:100%;max-width:430px;box-shadow:0 14px 44px rgba(0,0,0,.2);
+  max-height:calc(100vh - 28px);display:flex;flex-direction:column}
+.dlg .dh{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;
+  font-weight:600;font-size:13.5px}
+.dlg .dh .sp{flex:1}
+.dlg .db{padding:14px 16px 4px;overflow-y:auto}
+.dlg .df{padding:11px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.fld{margin-bottom:13px}
+.fld>label{display:block;font-size:11.5px;color:var(--ink2);margin-bottom:5px}
+.fld select{width:100%;padding:7px 9px;border:1px solid var(--line2);border-radius:6px;
+  font:inherit;font-size:12.5px;background:#fff}
+.sw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px}
+.sw input{width:auto;margin:0}
+.derr{font-size:12px;color:var(--red);padding:0 16px;line-height:1.6}
+.derr:empty{display:none}
+.dnote{font-size:11.5px;color:var(--ink3);line-height:1.7;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="hd"><div class="ic">权</div><div class="ttl">账号与授权</div><div class="sp"></div>
+  <div class="who" id="who"></div><a data-home>← 返回首页</a><a href="/logout">退出</a></div>
+<main>
+  <!-- 待开通：没绑 id 的人打开过面板就自动出现在这里 -->
+  <div class="panel hide" id="pendPanel">
+    <div class="ph"><b>待开通</b><span class="n" id="pendN">0</span><div class="sp"></div>
+      <span class="hint" style="padding:0">这些人打开过面板，但还没绑任何账号 —— 勾模块点「开通」即可</span></div>
+    <div class="pb tw"><table>
+      <thead><tr><th>姓名</th><th>飞书 id</th><th>最近来过</th><th class="c">次数</th><th>开通模块</th><th class="c">操作</th></tr></thead>
+      <tbody id="ptb"></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><b>加一个人</b><div class="sp"></div>
+      <span class="hint" style="padding:0">不填口令 = 只认飞书身份（推荐）。飞书 id 可留空，等他自己来一次再绑</span></div>
+    <div class="row">
+      <div class="field"><label>姓名（显示名）</label><input id="newName" placeholder="例如 鲍霞"></div>
+      <div class="field"><label>飞书 id（可空）</label><input id="newOid" placeholder="ou_..."></div>
+      <div class="field"><label>角色</label><select id="newRole"><option value="user">普通</option><option value="admin">管理员</option></select></div>
+      <div class="field"><label>开通模块</label>
+        <div style="padding-top:5px" id="npPerms"></div></div>
+      <button class="btn pri" id="add">新增</button>
+      <button class="btn" id="importPeople">从人员名单批量建号</button>
+    </div>
+    <div class="hint">批量建号读 data/people.json（任务表人员字段的快照，36 人，key 就是飞书 id）：直接建成绑好身份的账号，默认只开审核，工程量按需勾。</div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><b>谁能进哪个模块</b><div class="sp"></div><span class="hint" style="padding:0">勾选即保存，不用点提交</span></div>
+    <div class="pb tw"><table>
+      <thead><tr><th>姓名</th><th>飞书 id</th><th>角色</th><th>模块</th><th class="c">状态</th><th>最后登录</th><th class="op">操作</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><b>说明</b></div>
+    <div class="hint" style="padding:12px 16px 16px">
+      1. <b>认人靠飞书 id，不靠账号口令</b>：人在飞书里打开面板，宿主给 open_id，服务端拿它查授权，零输入。<br>
+      2. <b>加权限、去权限都在「编辑」里</b>：勾上即给、去掉即收回，保存后立刻生效（已开着的页面下次请求就被拒）。<br>
+      3. 模块权限是「项目级」：只勾审核的人，入口只出审核一张卡，硬敲 /qty 也会被拒。<br>
+      4. 没开通的人第一次打开面板会自动进「待开通」，不用你去问他的 id 是多少。<br>
+      5. PC 上做工程量没有飞书宿主，认不出人 —— 在「编辑」里点「工程量链接」，点一次就记住（30 天）。<br>
+      6. 管理员不看逐条授权，默认全通；他也照样要绑飞书 id，或用自己的「管理链接」。<br>
+      7. 停用比删除好：账号还在、留痕里的人名不会变成空，而且对**已有会话立即生效**。解绑飞书 id 只是下次进不来（已登录的最长再撑 12 小时）。<br>
+      8. 这套边界要清楚：飞书 id 由前端上报，服务端没验签，<b>改请求能冒名</b>。它让权限落到人头上、可追溯，不是不可否认。
+    </div>
+  </div>
+</main>
+
+<!-- 编辑：一次改完角色 / 模块权限 / 启停 -->
+<div class="mask hide" id="edMask">
+  <div class="dlg">
+    <div class="dh"><span id="edTitle">编辑</span><div class="sp"></div>
+      <button class="btn" id="edX">关闭</button></div>
+    <div class="db">
+      <div class="fld"><label>飞书 id（认人靠它，改用「绑定 / 改绑」按钮）</label>
+        <div class="mono" id="edOid" style="font-size:11.5px">—</div></div>
+      <div class="fld"><label>角色</label>
+        <select id="edRole">
+          <option value="user">普通</option>
+          <option value="admin">管理员</option>
+        </select></div>
+      <div class="fld"><label>模块权限（勾上加、去掉减）</label>
+        <div id="edPerms"></div>
+        <div class="dnote" id="edPermHint"></div></div>
+      <div class="fld"><label>账号状态</label>
+        <label class="sw"><input type="checkbox" id="edActive">启用
+          <span style="color:var(--ink3);font-size:11.5px">（取消 = 停用，已有会话立即失效）</span></label></div>
+      <div class="fld"><label>其它操作</label>
+        <div class="acts" id="edOps"></div>
+        <div class="dnote">链接按<b>已保存</b>的权限给 —— 上面的勾选要先保存才生效；链接发给本人，点一次记 30 天。</div></div>
+    </div>
+    <div class="derr" id="edErr"></div>
+    <div class="df"><button class="btn" id="edCancel">取消</button>
+      <button class="btn pri" id="edSave">保存</button></div>
+  </div>
+</div>
+
+<script src="/static/auth.js?v=1"></script>
+<script>
+const $ = s => document.querySelector(s);
+/* 短名给表格用；顺序就是这一排勾选框的顺序。
+   加模块时这里必须同步 —— _selftest_shrink.py 会比对它和 /api/admin/projs 是否一致。 */
+const PROJ = {audit: '审核', qty: '工程量', shrink: '压缩', watermark: '水印'};
+let USERS = [], PEND = [], ME = {};
+
+/* ---------------------------------------------------------------- 编辑弹窗 */
+let EDIT_UID = null;
+
+function edErr(t) { $('#edErr').textContent = t || ''; }
+
+/* 其它操作按钮组：按「当前选中的角色」渲染，不是按库里的角色 ——
+   弹窗里把角色改成管理员后，删除按钮必须当场消失，不能等保存。 */
+function renderOps(u, role) {
+  const have = new Set(u.perms || []);
+  const ops = [];
+  Object.keys(PROJ).forEach(k => {
+    if (role === 'admin' || have.has(k)) {
+      ops.push(`<button class="btn" data-eo="link" data-proj="${k}">${PROJ[k]}链接</button>`);
+    }
+  });
+  if (role === 'admin') ops.push(`<button class="btn" data-eo="link" data-proj="admin">管理链接</button>`);
+  ops.push(`<button class="btn" data-eo="bind">${u.oid ? '改绑' : '绑定'} id</button>`);
+  if (u.oid) ops.push(`<button class="btn" data-eo="unbind">解绑 id</button>`);
+  if (u.has_pw) ops.push(`<button class="btn" data-eo="pw">重置口令</button>`);
+  if (role !== 'admin') ops.push(`<button class="btn dg" data-eo="del">删除账号</button>`);
+  $('#edOps').innerHTML = ops.join('');
+}
+
+function syncRoleLock() {
+  const adm = $('#edRole').value === 'admin';
+  // 管理员在 perm.can() 里直接返回 True，勾了也没用 —— 禁掉比让人白勾一场好
+  $('#edPerms').querySelectorAll('input[type="checkbox"]').forEach(x => { x.disabled = adm; });
+  let tip = adm
+    ? '<b>管理员</b>：能进全部模块、也能管别人的授权。逐条勾选对它不生效（后端同样这么判）。'
+    : '<b>普通</b>：勾上的模块才会在入口页出卡，去掉即收回，下次请求就被拒；一个都不勾 = 能登录但什么都看不到。';
+  if (EDIT_UID && EDIT_UID === (ME.uid || '')) {
+    tip += '<br><span style="color:var(--amber)">这是你自己：改成普通或停用会被后端拒绝（防止把自己锁在门外），'
+         + '要交班请先给另一个人管理员权限。</span>';
+  }
+  $('#edPermHint').innerHTML = tip;
+  const u = USERS.find(x => x.id === EDIT_UID);
+  if (u) renderOps(u, $('#edRole').value);
+}
+
+function openEdit(u) {
+  EDIT_UID = u.id;
+  $('#edTitle').textContent = '编辑 · ' + u.name;
+  $('#edOid').textContent = u.oid || '（未绑飞书 id —— 这个人现在进不来，除非给了他口令）';
+  $('#edRole').value = u.role;
+  const have = new Set(u.perms || []);
+  $('#edPerms').innerHTML = Object.keys(PROJ).map(k =>
+    `<label class="chk"><input type="checkbox" data-ep="${k}" ${have.has(k) ? 'checked' : ''}>${PROJ[k]}</label>`
+  ).join('');
+  $('#edActive').checked = !!u.active;
+
+  edErr('');
+  syncRoleLock();          // 里面会按当前角色渲染按钮组，别在这里另写一份
+  $('#edMask').classList.remove('hide');
+}
+
+function closeEdit() { $('#edMask').classList.add('hide'); EDIT_UID = null; }
+
+async function saveEdit() {
+  const u = USERS.find(x => x.id === EDIT_UID);
+  if (!u) { closeEdit(); return; }
+  const role = $('#edRole').value;
+  const active = $('#edActive').checked ? 1 : 0;
+  const perms = Array.from($('#edPerms').querySelectorAll('input[type="checkbox"]'))
+    .filter(x => x.checked).map(x => x.dataset.ep);
+  const btn = $('#edSave');
+  btn.disabled = true; btn.textContent = '保存中…'; edErr('');
+  const r = await api('/api/admin/user', {action: 'update', uid: u.id, role, active, perms});
+  btn.disabled = false; btn.textContent = '保存';
+  if (!r.ok) { edErr(r.error || '保存失败'); return; }   // 错误留在弹窗里，别落到被盖住的页面底部
+  closeEdit();
+  const what = role === 'admin' ? '管理员（全部模块）' : (perms.map(k => PROJ[k]).join('、') || '无任何模块');
+  say(`已保存：${u.name} → ${what}` + (active ? '' : ' · 已停用'));
+  load();
+}
+
+$('#edX').onclick = closeEdit;
+$('#edCancel').onclick = closeEdit;
+$('#edSave').onclick = saveEdit;
+$('#edRole').onchange = syncRoleLock;
+$('#edMask').onclick = e => { if (e.target === $('#edMask')) closeEdit(); };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#edMask').classList.contains('hide')) closeEdit();
+});
+
+/* 弹窗里的其它按钮：事件委托绑一次，按钮内容每次重建也不用重绑 */
+$('#edOps').onclick = async e => {
+  const b = e.target.closest('button[data-eo]');
+  if (!b) return;
+  const u = USERS.find(x => x.id === EDIT_UID);
+  if (!u) return;
+  const kind = b.dataset.eo;
+
+  if (kind === 'link') {
+    const r = await api('/api/admin/user', {action: 'link', uid: u.id, proj: b.dataset.proj});
+    closeEdit();
+    if (r.ok) copy(r.url); else say(r.error, true);
+    return;
+  }
+  if (kind === 'bind') {
+    const oid = prompt('填这个人的飞书 id（ou_ 开头）：', u.oid || '');
+    if (!oid || !oid.trim()) return;
+    const r = await api('/api/admin/user', {action: 'bind', uid: u.id, oid: oid.trim()});
+    if (!r.ok) { edErr(r.error); return; }
+    closeEdit(); say(`已绑定 ${u.name}`); load(); loadPending();
+    return;
+  }
+  if (kind === 'unbind') {
+    if (!confirm('解绑后这个人下次就进不去（已登录的会话最长留 12 小时）。要立刻断开请用「停用」。继续？')) return;
+    const r = await api('/api/admin/user', {action: 'unbind', uid: u.id});
+    if (!r.ok) { edErr(r.error); return; }
+    closeEdit(); say(`已解绑 ${u.name}`); load();
+    return;
+  }
+  if (kind === 'pw') {
+    const pw = prompt('新口令（至少 6 位）：');
+    if (!pw) return;
+    const r = await api('/api/admin/user', {action: 'update', uid: u.id, pw});
+    if (!r.ok) { edErr(r.error); return; }
+    closeEdit(); say(`口令已重置：${u.name}`);
+    return;
+  }
+  if (kind === 'del') {
+    if (!confirm('删除这个账号？留痕里的名字还在，但人不能再进来。')) return;
+    const r = await api('/api/admin/user', {action: 'delete', uid: u.id});
+    if (!r.ok) { edErr(r.error); return; }
+    closeEdit(); say(`已删除 ${u.name}`); load();
+  }
+};
+
+function say(t, err) { const m = $('#msg'); m.textContent = t || ''; m.className = 'msg' + (err ? ' err' : ''); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function api(url, body) {
+  const r = await fetch(url, body ? {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)} : {}).then(r => r.json()).catch(() => ({ok: false, error: '请求失败'}));
+  // 票据过期时别只丢一句「未登录或登录已过期」，要说清下一步怎么办
+  return (window.qcExplain401 ? window.qcExplain401(r) : r);
+}
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); say('已复制链接，发给本人即可（点一次就记住）'); }
+  catch (e) { prompt('复制这个链接给本人：', text); }
+}
+
+/* 待开通：姓名从人员名单里换，换不到就留空让人自己认 id */
+async function loadPending() {
+  const r = await api('/api/admin/pending');
+  PEND = (r.ok && r.items) || [];
+  $('#pendPanel').classList.toggle('hide', !PEND.length);
+  $('#pendN').textContent = PEND.length;
+  if (!PEND.length) return;
+  const names = {};
+  try {
+    const q = await api('/api/people?ids=' + encodeURIComponent(PEND.map(p => p.oid).join(',')));
+    Object.assign(names, (q && q.names) || {});
+  } catch (e) {}
+  const tb = $('#ptb');
+  tb.innerHTML = '';
+  PEND.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(names[p.oid] || '（名单里没有）')}</td>
+      <td class="mono">${esc(p.oid)}</td>
+      <td class="mono">${esc(p.last_at)}</td>
+      <td class="c">${p.hits}</td>
+      <td>${Object.keys(PROJ).map(k => `<label class="chk"><input type="checkbox" data-p="${k}" ${k === 'audit' ? 'checked' : ''}>${PROJ[k]}</label>`).join('')}</td>
+      <td class="c"><button class="btn pri" data-ok="1">开通</button></td>`;
+    tr.querySelector('[data-ok]').onclick = async () => {
+      const perms = Array.from(tr.querySelectorAll('input[data-p]')).filter(x => x.checked).map(x => x.dataset.p);
+      if (!perms.length) { say('至少要开一个模块', true); return; }
+      const name = names[p.oid] || prompt('这个飞书 id 是谁？填姓名：', '') || '';
+      if (!name) return;
+      const res = await api('/api/admin/user', {action: 'approve', oid: p.oid, name, perms});
+      if (res.ok) { say(`已开通 ${name}`); loadPending(); load(); }
+      else say(res.error, true);
+    };
+    tb.appendChild(tr);
+  });
+}
+
+async function load() {
+  const r = await api('/api/admin/users');
+  if (!r.ok) { document.querySelector('main').innerHTML = '<div class="panel"><div class="pb">' + (r.error || '无权访问') + '</div></div>'; return; }
+  USERS = r.items;
+  const tb = $('#tb');
+  tb.innerHTML = '';
+  USERS.forEach(u => {
+    const tr = document.createElement('tr');
+    const perms = new Set(u.perms || []);
+    // 操作列只留两个：编辑（一切都在弹窗里改）+ 启停（最常用）。
+    // 链接 / 绑定 / 口令 / 删除全进弹窗 —— 否则这一列宽到能把姓名挤出屏幕（窄屏实测过）。
+    tr.innerHTML = `<td class="nw">${esc(u.name)}</td>
+      <td class="mono nw">${u.oid ? esc(u.oid) : '<span class="tag a">未绑</span>'}</td>
+      <td class="nw">${u.role === 'admin' ? '<span class="tag g">管理员</span>' : '<span class="tag n">普通</span>'}</td>
+      <td>${u.role === 'admin' ? '<span class="mono nw">全部（管理员）</span>' :
+        Object.entries(PROJ).map(([k, n]) => `<label class="chk"><input type="checkbox" data-u="${u.id}" data-p="${k}" ${perms.has(k) ? 'checked' : ''}>${n}</label>`).join('')}</td>
+      <td class="c nw">${u.active ? '<span class="tag g">启用</span>' : '<span class="tag a">停用</span>'}</td>
+      <td class="mono nw">${esc(u.last_login || '—')}</td>
+      <td class="op"><div class="acts">
+        <button class="btn pri" data-act="edit" data-u="${u.id}">编辑</button>
+        <button class="btn" data-act="toggle" data-u="${u.id}" data-v="${u.active ? 0 : 1}">${u.active ? '停用' : '启用'}</button>
+      </div></td>`;
+    tb.appendChild(tr);
+  });
+
+  tb.querySelectorAll('input[data-p]').forEach(cb => cb.onchange = async () => {
+    const uid = cb.dataset.u;
+    const u = USERS.find(x => x.id === uid);
+    const next = new Set(u.perms || []);
+    cb.checked ? next.add(cb.dataset.p) : next.delete(cb.dataset.p);
+    const r = await api('/api/admin/user', {action: 'update', uid, perms: [...next]});
+    if (r.ok) { u.perms = [...next]; say(`已保存：${u.name} → ${[...next].map(k => PROJ[k]).join('、') || '无模块'}`); }
+    else { cb.checked = !cb.checked; say(r.error, true); }
+  });
+
+  tb.querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
+    const uid = b.dataset.u, act = b.dataset.act;
+    if (act === 'edit') {
+      const u = USERS.find(x => x.id === uid);
+      if (u) openEdit(u); else say('列表里找不到这个人，刷新一下页面', true);
+      return;
+    }
+    if (act === 'toggle') {
+      const r = await api('/api/admin/user', {action: 'update', uid, active: +b.dataset.v});
+      if (r.ok) load(); else say(r.error, true);
+    }
+  });
+}
+
+$('#add').onclick = async () => {
+  const perms = Array.from(document.querySelectorAll('input[data-np]'))
+    .filter(x => x.checked).map(x => x.dataset.np);
+  const r = await api('/api/admin/user', {action: 'add', name: $('#newName').value.trim(),
+    oid: $('#newOid').value.trim(), role: $('#newRole').value, perms});
+  if (r.ok) { say('已新增 ' + $('#newName').value.trim()); $('#newName').value = ''; $('#newOid').value = ''; load(); }
+  else say(r.error, true);
+};
+
+$('#importPeople').onclick = async () => {
+  if (!confirm('从人员名单批量建号（按飞书 id 绑好，默认只开审核）？')) return;
+  const r = await api('/api/admin/import_people', {});
+  if (r.ok) { say(`新建 ${r.created.length} 个，跳过 ${r.skipped.length} 个（已有或同名）`); load(); loadPending(); }
+  else say(r.error, true);
+};
+
+(async () => {
+  // 加人表单的模块勾选框也跟着 PROJ 走，别再手写第二个清单
+  $('#npPerms').innerHTML = Object.keys(PROJ).map(k =>
+    `<label class="chk"><input type="checkbox" data-np="${k}" ${k === 'audit' ? 'checked' : ''}>${PROJ[k]}</label>`
+  ).join('');
+  const me = await api('/api/me');
+  if (me.ok) { ME = me; $('#who').textContent = me.name + (me.oid ? '' : '（未绑飞书 id）'); }
+  load();
+  loadPending();
+})();
+</script>
+<script src="/static/nav.js?v=2"></script>
+</body>
+</html>
